@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>النسيج كافيه | الإدارة</title>
+  <link rel="icon"
+    href="https://raw.githubusercontent.com/banijamrahclub/caffe/207bdaf96921de7784c59fb2c08521d167fea481/alnaseej%20logo1.png"
+    type="image/png">
+  <link rel="apple-touch-icon"
+    href="https://raw.githubusercontent.com/banijamrahclub/caffe/207bdaf96921de7784c59fb2c08521d167fea481/alnaseej%20logo1.png">
+  <link rel="stylesheet" href="admin.css" />
+</head>
+
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <img class="logo"
+        src="https://raw.githubusercontent.com/banijamrahclub/caffe/207bdaf96921de7784c59fb2c08521d167fea481/alnaseej%20logo1.png"
+        alt="النسيج كافيه">
+      <div>
+        <div class="brandName">لوحة الإدارة</div>
+        <div class="brandSub">إدارة الطلبات + تعديل المنيو</div>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button id="btnTestSound" class="btn btnGhost">تجربة الجرس 🔊</button>
+      <a class="btn" href="/" target="_blank" rel="noopener">موقع الطلب</a>
+      <button id="btnRefresh" class="btn btnPrimary">تحديث</button>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="panel">
+      <div class="panelTop">
+        <div class="filters">
+          <input id="search" class="input" placeholder="بحث بالهاتف أو رقم السيارة…" />
+          <select id="statusFilter" class="input">
+            <option value="all">كل الحالات</option>
+            <option value="new">جديد</option>
+            <option value="preparing">قيد التحضير</option>
+            <option value="ready">جاهز</option>
+            <option value="done">مكتمل</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="ordersList" class="ordersGrid">
+        <!-- سيتم توليد الطلبات هنا كبطاقات -->
+      </div>
+    </section>
+
+    <section class="card" style="margin-top:14px;">
+      <h2 style="margin:0 0 10px;">حالة الكافيه</h2>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+        <button id="btnCafeToggle" class="btn btnPrimary">تحميل...</button>
+        <span id="cafeStateHint" class="hint"></span>
+      </div>
+    </section>
+
+    <section class="card" style="margin-top:14px;">
+      <h2 style="margin:0 0 10px;">إدارة المنيو</h2>
+
+      <div style="display:grid; grid-template-columns: repeat(6, minmax(0,1fr)); gap:10px;">
+        <input id="mCat" class="input" placeholder="التصنيف" list="catList">
+        <datalist id="catList"></datalist>
+        <input id="mName" class="input" placeholder="اسم المنتج">
+        <input id="mPrice" class="input" placeholder="السعر" inputmode="decimal">
+        <input id="mImg" class="input" placeholder="رابط الصورة (اختياري)">
+        <button id="btnAddItem" class="btn btnPrimary">إضافة</button>
+      </div>
+
+      <div id="menuAdminHint" class="hint" style="margin-top:10px;"></div>
+      <div id="menuAdminList" style="margin-top:12px;"></div>
+    </section>
+
+  </main>
+
+  <!-- New Order Notification Popup -->
+  <div id="orderPopup" class="popupOverlay" aria-hidden="true">
+    <div class="popup">
+      <div class="popupIcon">🔔</div>
+      <div class="popupTitle">وصل طلب جديد!</div>
+      <div class="popupDesc">لديك طلب جديد في القائمة، يرجى مراجعته.</div>
+      <div class="popupActions">
+        <button id="btnStopSound" class="btn btnPrimary btnBlock">إيقاف الصوت وكتم التنبيه</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Audio Activation Overlay -->
+  <div id="audioOverlay" class="popupOverlay" style="display: flex; z-index: 20000; background: rgba(0,0,0,0.95);">
+    <div class="popup" style="max-width: 380px;">
+      <div class="popupIcon">🔊</div>
+      <div class="popupTitle">تفعيل جرس التنبيهات</div>
+      <div class="popupDesc">يرجى الضغط على الزر أدناه لتفعيل صوت التنبيهات فوراً عند وصول طلبات جديدة.</div>
+      <div class="popupActions">
+        <button id="btnStartDashboard" class="btn btnPrimary btnBlock" style="padding: 18px; font-size: 1.1rem;">دخول
+          لوحة الإدارة وتفعيل الصوت ✅</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+  <script src="/socket.io/socket.io.js"></script>
+  <audio id="orderSound" src="https://assets.mixkit.co/active_storage/sfx/951/951-preview.mp3" preload="auto"
+    loop></audio>
+  <script src="admin.js"></script>
+</body>
+
+</html>
