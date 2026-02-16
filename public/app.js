@@ -169,7 +169,6 @@ function renderTabs() {
     { id: "السينامون", label: "سينامون" },
     { id: "الكرواسون الجامبو", label: "الكرواسون" },
     { id: "الكوكيز", label: "الكوكيز" },
-    { id: "ايسكريم", label: "الأسكريم" },
     { id: "المفن", label: "المفن" },
     { id: "المشروبات", label: "المشروبات" },
     { id: "أصناف أخرى", label: "أخرى" }
@@ -281,13 +280,23 @@ function renderMenu() {
                     <div class="itemSub">${prod.note ? prod.note : ""}</div>
                     
                     ${hasVariants ? `
-                      <div class="variants">
+                      <div class="variants" style="gap:4px;">
+                        <div style="width:100%; font-size:0.7rem; color:var(--muted); margin-bottom:2px;">${isIceCream ? 'اختر الحجم:' : 'اختر النوع:'}</div>
                         ${prod.variants.map((v, vIdx) => `
-                          <button class="varBtn ${(!isIceCream && vIdx === 0) ? 'active' : ''}" 
+                          <button class="varBtn ${(vIdx === 0 && !isIceCream) ? 'active' : ''}" 
+                            data-type="size"
                             onclick="selectVariant(${catIndex}, ${pIdx}, ${vIdx}, ${v.price}, '${v.id}')">
                             ${v.variantLabel}
                           </button>
                         `).join("")}
+                      </div>
+                    ` : ""}
+
+                    ${isIceCream ? `
+                      <div class="variants" style="gap:4px; margin-top:10px;">
+                        <div style="width:100%; font-size:0.7rem; color:var(--muted); margin-bottom:2px;">اختر التعبئة:</div>
+                        <button class="varBtn" data-type="pack" onclick="selectIcePack(${catIndex}, ${pIdx}, 'كوب')">كوب</button>
+                        <button class="varBtn" data-type="pack" onclick="selectIcePack(${catIndex}, ${pIdx}, 'بسكوت')">بسكوت</button>
                       </div>
                     ` : ""}
                   </div>
@@ -312,29 +321,72 @@ window.selectVariant = (catIdx, pIdx, vIdx, price, itemId) => {
   const card = document.getElementById(`prod-${catIdx}-${pIdx}`);
   if (!card) return;
 
-  // تحديث الأزرار
-  card.querySelectorAll('.varBtn').forEach((btn, i) => {
+  // تحديث الأزرار (الحجم)
+  card.querySelectorAll('.varBtn[data-type="size"]').forEach((btn, i) => {
     btn.classList.toggle('active', i === vIdx);
   });
+
+  // إذا لم يكن هناك أزرار محددة النوع (للمنتجات القديمة)
+  if (card.querySelectorAll('.varBtn[data-type="size"]').length === 0) {
+    card.querySelectorAll('.varBtn').forEach((btn, i) => {
+      btn.classList.toggle('active', i === vIdx);
+    });
+  }
 
   // تحديث السعر
   const priceEl = document.getElementById(`price-${catIdx}-${pIdx}`);
   if (priceEl) priceEl.innerText = Number(price).toFixed(3) + " د.ب";
 
-  // تحديث الزر (لإرسال البيانات الصحيحة للسلة)
-  const addBtn = document.getElementById(`add-${catIdx}-${pIdx}`);
-  if (addBtn) {
-    addBtn.disabled = false;
-    addBtn.style.opacity = "1";
-    addBtn.innerText = "+ إضافة";
-  }
-
-  const prodTitle = card.querySelector('.itemTitle').innerText;
-  const variants = card.querySelectorAll('.varBtn');
-  const label = variants[vIdx].innerText.trim();
-
-  addBtn.onclick = () => addFromGroup(prodTitle, price, label);
+  updateIceBtn(catIdx, pIdx);
 };
+
+window.selectIcePack = (catIdx, pIdx, pack) => {
+  const card = document.getElementById(`prod-${catIdx}-${pIdx}`);
+  if (!card) return;
+
+  card.querySelectorAll('.varBtn[data-type="pack"]').forEach(btn => {
+    btn.classList.toggle('active', btn.innerText.trim() === pack);
+  });
+
+  updateIceBtn(catIdx, pIdx);
+};
+
+function updateIceBtn(catIdx, pIdx) {
+  const card = document.getElementById(`prod-${catIdx}-${pIdx}`);
+  if (!card) return;
+
+  const isIceCream = card.querySelector('.itemTitle').innerText.includes("ايسكريم") || card.querySelector('.itemTitle').innerText.includes("أسكريم");
+  const addBtn = document.getElementById(`add-${catIdx}-${pIdx}`);
+
+  const sizeBtn = card.querySelector('.varBtn[data-type="size"].active');
+  const packBtn = card.querySelector('.varBtn[data-type="pack"].active');
+
+  if (isIceCream) {
+    if (sizeBtn && packBtn) {
+      const price = parseFloat(document.getElementById(`price-${catIdx}-${pIdx}`).innerText);
+      const label = `${sizeBtn.innerText.trim()} - ${packBtn.innerText.trim()}`;
+      const title = card.querySelector('.itemTitle').innerText;
+
+      addBtn.disabled = false;
+      addBtn.style.opacity = "1";
+      addBtn.innerText = "+ إضافة";
+      addBtn.onclick = () => addFromGroup(title, price, label);
+    } else {
+      addBtn.disabled = true;
+      addBtn.style.opacity = "0.5";
+      addBtn.innerText = "يرجى الاختيار";
+    }
+  } else {
+    // للمنتجات العادية
+    const activeSize = card.querySelector('.varBtn.active');
+    if (activeSize) {
+      const price = parseFloat(document.getElementById(`price-${catIdx}-${pIdx}`).innerText);
+      const label = activeSize.innerText.trim();
+      const title = card.querySelector('.itemTitle').innerText;
+      addBtn.onclick = () => addFromGroup(title, price, label);
+    }
+  }
+}
 
 window.addFromGroup = (baseName, price, variantLabel) => {
   const fullName = variantLabel ? `${baseName} (${variantLabel})` : baseName;
