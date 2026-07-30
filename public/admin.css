@@ -49,8 +49,10 @@ body {
   width: 42px;
   height: 42px;
   border-radius: 12px;
-  background: rgba(255, 255, 255, .06);
-  padding: 6px
+  background: #f8f9fa;
+  padding: 6px;
+  object-fit: contain;
+  flex-shrink: 0;
 }
 
 .brandName {
@@ -436,6 +438,49 @@ body {
   overflow-y: auto;
 }
 
+.tabs {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.tab {
+  padding: 8px 16px;
+  background: transparent;
+  color: var(--muted);
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: 0.3s;
+}
+
+.tab:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.tab.active {
+  background: var(--teal);
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(29,185,84,0.3);
+}
+
+.tab-content {
+  display: block;
+}
+
+.kpis {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 15px;
+}
+
+.income-expense-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
 .btnDel {
   background: rgba(255, 80, 80, .10);
   border-color: rgba(255, 80, 80, .30);
@@ -460,4 +505,18 @@ body {
     padding-left: 0;
     padding-bottom: 15px;
   }
-}
+
+  .kpis {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .income-expense-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .topbar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+}

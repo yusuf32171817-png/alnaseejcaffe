@@ -1,7 +1,48 @@
+function checkPass() {
+  let pass = sessionStorage.getItem("adminPass");
+  if (!pass) {
+    pass = prompt("أدخل كلمة المرور لدخول لوحة الإدارة:");
+    if (pass === "1212") {
+      sessionStorage.setItem("adminPass", "1212");
+    } else {
+      alert("كلمة مرور خاطئة!");
+      window.location.href = "/";
+    }
+  }
+}
+checkPass();
+
 async function api(url, opts = {}) {
   const headers = opts.headers || {};
+  const pass = sessionStorage.getItem("adminPass");
+  if (pass) headers["x-admin-pass"] = pass;
   if (opts.body && !headers["Content-Type"]) headers["Content-Type"] = "application/json";
   return fetch(url, { ...opts, headers });
+}
+
+const IMGBB_API_KEY = "37c388a5525cc1f9038fbceb73ce1d54"; // تم وضع مفتاحك الخاص بنجاح ✅
+
+async function uploadImage(file) {
+  const formData = new FormData();
+  formData.append("image", file);
+  
+  try {
+    const res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
+      method: "POST",
+      body: formData
+    });
+    const data = await res.json();
+    if (data.success) {
+      return data.data.url;
+    } else {
+      console.error("ImgBB Error:", data);
+      throw new Error(data.error.message || "Unknown error");
+    }
+  } catch (e) {
+    console.error("Upload error detail:", e);
+    toast("فشل رفع الصورة: " + e.message);
+    return null;
+  }
 }
 
 const ordersListEl = document.getElementById("ordersList");
@@ -199,7 +240,7 @@ async function loadMenuAdmin() {
     menuAdminList.innerHTML = `
       <div style="display:grid; gap:10px;">
         ${items.map(it => `
-          <div style="border:1px solid rgba(255,255,255,.10); border-radius:16px; padding:10px; background: rgba(10,12,15,.35);">
+          <div class="menuItemCard" style="border:1px solid rgba(255,255,255,.10); border-radius:16px; padding:10px; background: rgba(10,12,15,.35);">
             <div style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:center;">
               <div style="display:flex; align-items:center; gap:12px;">
                 <img src="${it.image_url || 'https://placehold.co/100x100/222/FFF?text=No+Img'}" 
@@ -216,7 +257,11 @@ async function loadMenuAdmin() {
                   متوفر
                 </label>
                 <input class="input" style="width:140px;" data-price="${it.id}" value="${Number(it.price || 0).toFixed(3)}" placeholder="السعر">
-                <input class="input" style="width:200px;" data-img="${it.id}" value="${it.image_url || ""}" placeholder="رابط الصورة">
+                <div style="display:flex; gap:4px; align-items:center;">
+                  <input type="hidden" data-img="${it.id}" value="${it.image_url || ""}">
+                  <input type="file" id="file-${it.id}" style="display:none;" accept="image/*" data-upload-id="${it.id}">
+                  <button class="btn" onclick="document.getElementById('file-${it.id}').click()" style="padding:0 12px; background:rgba(255,255,255,0.05); border-color:var(--stroke); font-size:0.8rem;">📷 تغيير الصورة</button>
+                </div>
                 <button class="btn btnPrimary" data-save="${it.id}">حفظ</button>
                 <button class="btn" style="background:rgba(255,107,107,0.1); border-color:rgba(255,107,107,0.2); color:#ff6b6b;" data-delete="${it.id}">حذف</button>
                 <span id="status-${it.id}" style="font-size:0.8rem; color:var(--teal)"></span>
@@ -250,6 +295,45 @@ async function loadMenuAdmin() {
             statusEl.textContent = "تم الحفظ ✅";
             setTimeout(() => statusEl.textContent = "", 2000);
           }
+        }
+      });
+    });
+
+    menuAdminList.querySelectorAll("[data-upload-id]").forEach(input => {
+      input.addEventListener("change", async (e) => {
+        const id = input.getAttribute("data-upload-id");
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const statusEl = document.getElementById(`status-${id}`);
+        if (statusEl) statusEl.textContent = "جاري الرفع... ⏳";
+
+        const url = await uploadImage(file);
+        if (url) {
+          const imgInput = menuAdminList.querySelector(`[data-img="${id}"]`);
+          if (imgInput) imgInput.value = url;
+          
+          // تحديث الصورة المصغرة فوراً
+          const card = input.closest('.menuItemCard'); // البحث عن الحاوية الصحيحة
+          const thumb = card.querySelector('img');
+          if (thumb) thumb.src = url;
+
+          // حفظ تلقائي في قاعدة البيانات
+          const res = await api(`/api/admin/menu/items/${id}`, {
+            method: "PUT",
+            body: JSON.stringify({ image_url: url })
+          });
+          
+          if (res.ok) {
+            if (statusEl) {
+              statusEl.textContent = "تم الرفع والحفظ تلقائياً ✅";
+              setTimeout(() => statusEl.textContent = "", 3000);
+            }
+          } else {
+            if (statusEl) statusEl.textContent = "تم الرفع ولكن فشل الحفظ في السيرفر ❌";
+          }
+        } else {
+          if (statusEl) statusEl.textContent = "فشل الرفع ❌";
         }
       });
     });
@@ -321,10 +405,69 @@ async function addMenuItem() {
 btnCafeToggle?.addEventListener("click", toggleCafe);
 btnAddItem?.addEventListener("click", addMenuItem);
 
+const fileNewItem = document.getElementById("fileNewItem");
+if (fileNewItem) {
+  fileNewItem.addEventListener("change", async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    menuAdminHint.textContent = "جاري رفع الصورة... ⏳";
+    const url = await uploadImage(file);
+    if (url) {
+      const mImgInput = document.getElementById("mImg");
+      if (mImgInput) mImgInput.value = url;
+      menuAdminHint.textContent = "تم الرفع ✅ يمكنك الإضافة الآن";
+    } else {
+      menuAdminHint.textContent = "فشل رفع الصورة ❌";
+    }
+  });
+}
+
+// === إدارة النكهات (مبسطة لنكهتين) ===
+const flavor1Input = document.getElementById("flavor1");
+const flavor2Input = document.getElementById("flavor2");
+const btnSaveFlavors = document.getElementById("btnSaveFlavors");
+const flavorStatus = document.getElementById("flavorStatus");
+
+async function loadFlavorsAdmin() {
+  const res = await api("/api/admin/flavors");
+  const data = await res.json();
+  const flavors = data.flavors || [];
+  if (flavor1Input) flavor1Input.value = flavors[0] ? flavors[0].name : "";
+  if (flavor2Input) flavor2Input.value = flavors[1] ? flavors[1].name : "";
+}
+
+btnSaveFlavors?.addEventListener("click", async () => {
+  const f1 = flavor1Input.value.trim();
+  const f2 = flavor2Input.value.trim();
+  
+  flavorStatus.textContent = "جاري الحفظ... ⏳";
+  
+  try {
+    const res = await api("/api/admin/flavors/set", {
+      method: "POST",
+      body: JSON.stringify({ flavors: [f1, f2] })
+    });
+    
+    if (res.ok) {
+      flavorStatus.textContent = "تم حفظ النكهات ✅";
+      setTimeout(() => flavorStatus.textContent = "", 2000);
+      loadFlavorsAdmin();
+    } else {
+      const data = await res.json().catch(() => ({}));
+      flavorStatus.textContent = "فشل الحفظ: " + (data.error || res.statusText || "خطأ غير معروف") + " ❌";
+    }
+  } catch (e) {
+    console.error("Save flavors error:", e);
+    flavorStatus.textContent = "خطأ في الاتصال ❌";
+  }
+});
+
 if (btnCafeToggle && menuAdminList) {
   loadCafeState();
   loadMenuAdmin();
   loadCategories();
+  loadFlavorsAdmin();
 }
 
 // ===== Real-time Updates (Socket.io) =====
@@ -430,4 +573,410 @@ if (socket) {
     orderPopup?.classList.add("show");
     toast("وصل طلب جديد! 🔔");
   });
+  socket.on("order_arrived", (data) => {
+    playOrderSound();
+    toast(`الزبون ${data.order.customer_name || ''} وصل للمحل! 🚗🔔`);
+    
+    // إظهار بوب أب مخصص
+    const p = document.getElementById("arrivedPopup");
+    const detailsDiv = document.getElementById("arrivedDetails");
+    if (p && detailsDiv) {
+      let itemsHtml = data.items.map(it => `<div>- ${it.qty}x <b>${it.item_name}</b> (${money(it.unit_price)})</div>`).join("");
+      
+      detailsDiv.innerHTML = `
+        <div style="font-size: 1.1rem; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom:8px; margin-bottom:8px;">
+          <b>رقم الطلب:</b> <span style="color:var(--teal)">#${data.order.order_no}</span>
+        </div>
+        <div><b>اسم الزبون:</b> ${data.order.customer_name}</div>
+        <div><b>رقم الهاتف:</b> ${data.order.customer_phone}</div>
+        ${data.order.car_no ? `<div><b>رقم السيارة:</b> ${data.order.car_no}</div>` : ''}
+        ${data.order.note ? `<div><b>ملاحظة:</b> <span style="color:#ffb86c">${data.order.note}</span></div>` : ''}
+        <div style="margin-top:10px; border-top: 1px dashed rgba(255,255,255,0.1); padding-top:8px;">
+          <b>الأصناف المطلوبة:</b>
+          <div style="margin-top:5px; padding-right:10px;">${itemsHtml}</div>
+        </div>
+        <div style="margin-top:10px; font-size:1.1rem; text-align:left; font-weight:bold; color:var(--teal)">
+          المجموع الكلي: ${money(data.order.total)}
+        </div>
+      `;
+      p.classList.add("show");
+    }
+  });
 }
+
+function stopOrderSound() {
+  if (orderSound) {
+    orderSound.pause();
+    orderSound.currentTime = 0;
+  }
+  if (soundTimer) clearTimeout(soundTimer);
+  orderPopup?.classList.remove("show");
+  document.getElementById("arrivedPopup")?.classList.remove("show");
+}
+
+if (btnStopSound) btnStopSound.addEventListener("click", stopOrderSound);
+const btnStopArrivedSound = document.getElementById("btnStopArrivedSound");
+if (btnStopArrivedSound) btnStopArrivedSound.addEventListener("click", stopOrderSound);
+
+// ===== SPA Tabs Logic =====
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
+    
+    tab.classList.add('active');
+    const target = document.getElementById(tab.getAttribute('data-target'));
+    if (target) {
+      target.style.display = 'block';
+    }
+    
+    if (tab.getAttribute('data-target') === 'tab-accounting') {
+      if (typeof loadAccountingData === 'function') loadAccountingData('all');
+    }
+  });
+});
+
+let accountingChart = null;
+
+// Initial values for filters
+const todayDate = new Date();
+const currentMonth = String(todayDate.getMonth() + 1).padStart(2, '0');
+const currentYear = todayDate.getFullYear();
+
+// Ledger Filter Initial Value
+const ledgerFilterMonthSelect = document.getElementById("ledgerFilterMonthSelect");
+if (ledgerFilterMonthSelect) ledgerFilterMonthSelect.value = currentMonth;
+const ledgerFilterYearInput = document.getElementById("ledgerFilterYearInput");
+if (ledgerFilterYearInput) ledgerFilterYearInput.value = currentYear;
+
+// Chart Filter Initial Value
+const chartFilterMonthSelect = document.getElementById("chartFilterMonthSelect");
+if (chartFilterMonthSelect) chartFilterMonthSelect.value = currentMonth;
+const chartFilterYearInput = document.getElementById("chartFilterYearInput");
+if (chartFilterYearInput) chartFilterYearInput.value = currentYear;
+
+// Toggle selector visibility for Chart
+document.getElementById("chartFilterMode")?.addEventListener("change", (e) => {
+  const mode = e.target.value;
+  const monthGroup = document.getElementById("chartMonthGroup");
+  if (mode === "monthly") {
+    if (monthGroup) monthGroup.style.display = "flex";
+  } else {
+    if (monthGroup) monthGroup.style.display = "none";
+  }
+});
+
+// Event Listeners for Apply Buttons
+document.getElementById("btnApplyLedgerFilter")?.addEventListener("click", () => { loadAccountingData('ledger'); });
+document.getElementById("btnApplyChartFilter")?.addEventListener("click", () => { loadAccountingData('chart'); });
+
+// ===== Accounting Logic =====
+async function loadAccountingData(type = 'all') {
+  try {
+    if (type === 'all' || type === 'ledger') {
+      const month = document.getElementById("ledgerFilterMonthSelect")?.value || "01";
+      const year = document.getElementById("ledgerFilterYearInput")?.value || "2026";
+      const target = `${year}-${month}`;
+      const res = await api(`/api/admin/accounting?view=monthly&target=${target}`);
+      const data = await res.json();
+      if (data.ok) {
+        // Render period KPIs based on ledger
+        document.getElementById("rangeOrderIncome").textContent = money(data.rangeStats.order_income);
+        document.getElementById("rangeExternalIncome").textContent = money(data.rangeStats.external_income);
+        document.getElementById("rangeExpense").textContent = money(data.rangeStats.expense);
+        document.getElementById("rangeNet").textContent = money(data.rangeStats.net);
+        
+        // Render Ledger Table
+        const tbody = document.getElementById("ledgerTableBody");
+        if (tbody && data.ledger) {
+          tbody.innerHTML = data.ledger.map(row => {
+            const color = row.net >= 0 ? 'var(--teal)' : '#ff6b6b';
+            return `
+              <tr style="border-bottom:1px solid rgba(255,255,255,0.05); font-weight: 500;">
+                <td style="padding:12px 10px;">${row.dayName}</td>
+                <td style="padding:12px 10px;">${row.date}</td>
+                <td style="padding:12px 10px; text-align:center;"><b>${row.order_count}</b></td>
+                <td style="padding:12px 10px; color:var(--teal)">${money(row.order_income)}</td>
+                <td style="padding:12px 10px; color:#ffb86c">${money(row.external_income)}</td>
+                <td style="padding:12px 10px; color:#ff6b6b">${money(row.expense)}</td>
+                <td style="padding:12px 10px; font-weight:bold; color:${color};" dir="ltr">${money(row.net)}</td>
+              </tr>
+            `;
+          }).join("");
+        }
+      }
+    }
+    
+    if (type === 'all' || type === 'chart') {
+      const view = document.getElementById("chartFilterMode")?.value || "monthly";
+      const month = document.getElementById("chartFilterMonthSelect")?.value || "01";
+      const year = document.getElementById("chartFilterYearInput")?.value || "2026";
+      const target = view === "monthly" ? `${year}-${month}` : year;
+      
+      const res = await api(`/api/admin/accounting?view=${view}&target=${target}`);
+      const data = await res.json();
+      if (data.ok) {
+        // Render Chart
+        renderChart(data.chartData);
+      }
+    }
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+// Ensure old calls to loadAccounting work by pointing to the new function
+window.loadAccounting = () => loadAccountingData('all');
+
+function renderChart(chartData) {
+  const ctx = document.getElementById("accountingChart")?.getContext("2d");
+  if (!ctx) return;
+
+  if (accountingChart) {
+    accountingChart.destroy();
+  }
+
+  const labels = chartData.map(row => {
+    // Return just day number or month name
+    const parts = row.date.split("-");
+    return parts.length === 3 ? parts[2] : row.dayName;
+  });
+  
+  const dataNet = chartData.map(row => row.net);
+  const dataIncome = chartData.map(row => row.order_income + row.external_income);
+  const dataExpense = chartData.map(row => row.expense);
+
+  accountingChart = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          label: "صافي الأرباح",
+          data: dataNet,
+          borderColor: "#2DB39F",
+          backgroundColor: "rgba(45, 179, 159, 0.1)",
+          fill: true,
+          tension: 0.3,
+          borderWidth: 3
+        },
+        {
+          label: "إجمالي الإيرادات",
+          data: dataIncome,
+          borderColor: "#eef2f6",
+          borderDash: [5, 5],
+          tension: 0.3,
+          borderWidth: 1.5
+        },
+        {
+          label: "المصروفات",
+          data: dataExpense,
+          borderColor: "#ff6b6b",
+          borderDash: [3, 3],
+          tension: 0.3,
+          borderWidth: 1.5
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        y: {
+          grid: { color: "rgba(255,255,255,0.05)" },
+          ticks: { color: "#a6b0bb" }
+        },
+        x: {
+          grid: { color: "rgba(255,255,255,0.05)" },
+          ticks: { color: "#a6b0bb" }
+        }
+      },
+      plugins: {
+        legend: {
+          labels: { color: "#eef2f6", font: { weight: "bold" } }
+        }
+      }
+    }
+  });
+}
+
+// ===== Save adjustment helper =====
+async function saveAdjustment(date, amount, note, hintEl, amountInput, noteInput) {
+  if (!date || !amount) {
+    hintEl.textContent = "الرجاء تحديد التاريخ والمبلغ";
+    return;
+  }
+  
+  hintEl.textContent = "جاري الحفظ...";
+  try {
+    const res = await api("/api/admin/accounting/adjust", {
+      method: "POST",
+      body: JSON.stringify({ date, amount: Number(amount), note })
+    });
+    const data = await res.json();
+    if (data.ok) {
+      hintEl.textContent = "تم الحفظ بنجاح ✅";
+      amountInput.value = "";
+      if (noteInput) noteInput.value = "";
+      setTimeout(() => hintEl.textContent = "", 2000);
+      loadAccounting();
+    } else {
+      hintEl.textContent = "فشل الحفظ ❌";
+    }
+  } catch (e) {
+    hintEl.textContent = "خطأ في الاتصال";
+  }
+}
+
+document.getElementById("btnSaveIncome")?.addEventListener("click", () => {
+  const date = document.getElementById("incDate").value;
+  const amount = document.getElementById("incAmount").value;
+  const note = document.getElementById("incNote").value;
+  const hint = document.getElementById("incHint");
+  
+  saveAdjustment(date, Number(amount), note, hint, document.getElementById("incAmount"), document.getElementById("incNote"));
+});
+
+document.getElementById("btnSaveExpense")?.addEventListener("click", () => {
+  const date = document.getElementById("expDate").value;
+  const amount = document.getElementById("expAmount").value;
+  const note = document.getElementById("expNote").value;
+  const hint = document.getElementById("expHint");
+  
+  // Expenses are saved as negative values in DB
+  saveAdjustment(date, -Number(amount), note, hint, document.getElementById("expAmount"), document.getElementById("expNote"));
+});
+
+// ===== Manual Order Logic =====
+const manualOrderModal = document.getElementById("manualOrderModal");
+const btnOpenManualOrder = document.getElementById("btnOpenManualOrder");
+const moCloseBtn = document.getElementById("moCloseBtn");
+const moItemSelect = document.getElementById("moItemSelect");
+const moQty = document.getElementById("moQty");
+const moAddItemBtn = document.getElementById("moAddItemBtn");
+const moItemsList = document.getElementById("moItemsList");
+const moTotal = document.getElementById("moTotal");
+const moSubmitBtn = document.getElementById("moSubmitBtn");
+const moCustomerName = document.getElementById("moCustomerName");
+
+let manualOrderItems = [];
+let availableMenu = [];
+
+async function loadMenuForManualOrder() {
+  try {
+    const res = await api("/api/menu");
+    const data = await res.json();
+    if (data.ok && data.menu) {
+      availableMenu = [];
+      moItemSelect.innerHTML = "<option value=''>اختر الصنف...</option>";
+      data.menu.forEach(cat => {
+        const optgroup = document.createElement("optgroup");
+        optgroup.label = cat.name;
+        cat.items.forEach(it => {
+          availableMenu.push(it);
+          const opt = document.createElement("option");
+          opt.value = it.id;
+          opt.textContent = `${it.name} - ${money(it.price)}`;
+          optgroup.appendChild(opt);
+        });
+        moItemSelect.appendChild(optgroup);
+      });
+    }
+  } catch(e) {}
+}
+
+function renderManualOrderItems() {
+  moItemsList.innerHTML = "";
+  let t = 0;
+  manualOrderItems.forEach((it, idx) => {
+    const lineTotal = it.price * it.qty;
+    t += lineTotal;
+    moItemsList.innerHTML += `
+      <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.05); padding:8px 12px; border-radius:8px;">
+        <div><b>${it.qty}x</b> ${it.name}</div>
+        <div style="display:flex; gap:10px; align-items:center;">
+          <span style="color:var(--teal)">${money(lineTotal)}</span>
+          <button class="btn" style="padding:4px 8px; font-size:0.8rem; background:rgba(255,80,80,0.1); color:#ff6b6b; border:none;" onclick="removeManualItem(${idx})">حذف</button>
+        </div>
+      </div>
+    `;
+  });
+  moTotal.textContent = Number(t).toFixed(3);
+}
+
+window.removeManualItem = function(idx) {
+  manualOrderItems.splice(idx, 1);
+  renderManualOrderItems();
+};
+
+btnOpenManualOrder?.addEventListener("click", () => {
+  manualOrderModal.classList.add("show");
+  manualOrderItems = [];
+  moCustomerName.value = "";
+  renderManualOrderItems();
+  loadMenuForManualOrder();
+});
+
+moCloseBtn?.addEventListener("click", () => {
+  manualOrderModal.classList.remove("show");
+});
+
+moAddItemBtn?.addEventListener("click", () => {
+  const id = moItemSelect.value;
+  const qty = parseInt(moQty.value) || 1;
+  if (!id || qty < 1) return;
+  
+  const menuItem = availableMenu.find(x => x.id == id);
+  if (!menuItem) return;
+  
+  // check if exists
+  const existing = manualOrderItems.find(x => x.id == id);
+  if (existing) {
+    existing.qty += qty;
+  } else {
+    manualOrderItems.push({ id: menuItem.id, name: menuItem.name, price: menuItem.price, qty });
+  }
+  moQty.value = 1;
+  moItemSelect.value = "";
+  renderManualOrderItems();
+});
+
+moSubmitBtn?.addEventListener("click", async () => {
+  if (manualOrderItems.length === 0) {
+    toast("لم يتم إضافة أي أصناف");
+    return;
+  }
+  
+  const payload = {
+    customer_name: moCustomerName.value.trim(),
+    items: manualOrderItems.map(it => ({
+      item_name: it.name,
+      unit_price: it.price,
+      qty: it.qty
+    }))
+  };
+  
+  moSubmitBtn.disabled = true;
+  moSubmitBtn.textContent = "جاري الحفظ...";
+  
+  try {
+    const res = await api("/api/admin/orders", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (data.ok) {
+      toast("تم حفظ الطلب بنجاح ✅");
+      manualOrderModal.classList.remove("show");
+      render(); // refresh orders list
+      loadAccounting(); // if we are on accounting page
+    } else {
+      toast("فشل حفظ الطلب ❌");
+    }
+  } catch (e) {
+    toast("خطأ في الاتصال");
+  } finally {
+    moSubmitBtn.disabled = false;
+    moSubmitBtn.textContent = "إتمام وحفظ الطلب ✅";
+  }
+});

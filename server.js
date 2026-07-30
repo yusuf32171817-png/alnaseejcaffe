@@ -9,16 +9,174 @@ const server = http.createServer(app);
 const io = new Server(server);
 
 const PORT = process.env.PORT || 3000;
-// ===== Admin Key Removed =====
+const ADMIN_PASSWORD = "1212";
 
 function requireAdmin(req, res, next) {
-  // تم إزالة التحقق من المفتاح بناءً على طلب المستخدم
-  return next();
+  const pass = req.headers["x-admin-pass"];
+  if (pass === ADMIN_PASSWORD) {
+    return next();
+  }
+  res.status(401).json({ ok: false, error: "Unauthorized" });
 }
 
+function getDaysInMonth(year, month) {
+  const date = new Date(year, month - 1, 1);
+  const days = [];
+  while (date.getMonth() === month - 1) {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    days.push(`${y}-${m}-${d}`);
+    date.setDate(date.getDate() + 1);
+  }
+  return days;
+}
+
+function getMonthsInYear(year) {
+  const months = [];
+  for (let m = 1; m <= 12; m++) {
+    months.push(`${year}-${String(m).padStart(2, '0')}`);
+  }
+  return months;
+}
+
+app.get("/api/admin/accounting", requireAdmin, (req, res) => {
+  const view = req.query.view || "monthly";
+  const target = req.query.target || new Date().toISOString().slice(0, 7); // "YYYY-MM" or "YYYY"
+  
+  const orders = db.prepare("SELECT date(created_at, 'localtime') as day, total FROM orders WHERE status = 'done'").all();
+  const adjs = db.prepare("SELECT date, amount FROM accounting_adjustments").all();
+
+  const dailyStats = {};
+
+  orders.forEach(o => {
+    if (!o.day) return;
+    const d = o.day.slice(0, 10);
+    if (!dailyStats[d]) dailyStats[d] = { order_count: 0, order_total: 0, income_adj: 0, expense_adj: 0 };
+    dailyStats[d].order_count += 1;
+    dailyStats[d].order_total += o.total;
+  });
+
+  adjs.forEach(a => {
+    if (!a.date) return;
+    const d = a.date.slice(0, 10);
+    if (!dailyStats[d]) dailyStats[d] = { order_count: 0, order_total: 0, income_adj: 0, expense_adj: 0 };
+    if (a.amount >= 0) {
+      dailyStats[d].income_adj += a.amount;
+    } else {
+      dailyStats[d].expense_adj += Math.abs(a.amount);
+    }
+  });
+
+  let ledger = [];
+
+  if (view === "monthly") {
+    const parts = target.split("-");
+    const year = Number(parts[0]);
+    const month = Number(parts[1] || 1);
+    const days = getDaysInMonth(year, month);
+    
+    ledger = days.map(d => {
+      const stats = dailyStats[d] || { order_count: 0, order_total: 0, income_adj: 0, expense_adj: 0 };
+      const dateObj = new Date(d);
+      const daysArabic = ["الأحد", "الأثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
+      const dayName = daysArabic[dateObj.getDay()] || "غير معروف";
+      
+      const orderIncome = stats.order_total;
+      const externalIncome = stats.income_adj;
+      const expense = stats.expense_adj;
+      const net = (orderIncome + externalIncome) - expense;
+
+      return {
+        dayName,
+        date: d,
+        order_count: stats.order_count,
+        order_income: orderIncome,
+        external_income: externalIncome,
+        expense: expense,
+        net: net
+      };
+    });
+  } else {
+    // view === "yearly"
+    const year = Number(target);
+    const months = getMonthsInYear(year);
+    
+    const monthlyStats = {};
+    months.forEach(m => {
+      monthlyStats[m] = { order_count: 0, order_income: 0, external_income: 0, expense: 0 };
+    });
+    
+    Object.keys(dailyStats).forEach(d => {
+      const m = d.substring(0, 7);
+      if (monthlyStats[m]) {
+        monthlyStats[m].order_count += dailyStats[d].order_count;
+        monthlyStats[m].order_income += dailyStats[d].order_total;
+        monthlyStats[m].external_income += dailyStats[d].income_adj;
+        monthlyStats[m].expense += dailyStats[d].expense_adj;
+      }
+    });
+
+    const monthsArabic = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];
+    ledger = months.map(m => {
+      const stats = monthlyStats[m];
+      const monthIdx = Number(m.split("-")[1]) - 1;
+      const net = (stats.order_income + stats.external_income) - stats.expense;
+
+      return {
+        dayName: monthsArabic[monthIdx] || m,
+        date: m,
+        order_count: stats.order_count,
+        order_income: stats.order_income,
+        external_income: stats.external_income,
+        expense: stats.expense,
+        net: net
+      };
+    });
+  }
+
+  let rangeOrderIncome = 0;
+  let rangeExternalIncome = 0;
+  let rangeExpense = 0;
+  let rangeNet = 0;
+  
+  ledger.forEach(row => {
+    rangeOrderIncome += row.order_income;
+    rangeExternalIncome += row.external_income;
+    rangeExpense += row.expense;
+    rangeNet += row.net;
+  });
+
+  // Sort daily descending (newest first) for visual ledger table
+  // But chart needs chronological order! We'll handle sorting on the client.
+  const tableLedger = [...ledger];
+  tableLedger.sort((a, b) => b.date.localeCompare(a.date));
+
+  res.json({ 
+    ok: true, 
+    ledger: tableLedger, 
+    chartData: ledger, // chronological for chart
+    rangeStats: {
+      order_income: rangeOrderIncome,
+      external_income: rangeExternalIncome,
+      expense: rangeExpense,
+      net: rangeNet
+    }
+  });
+});
 
 app.use(express.json({ limit: "1mb" }));
 app.use(express.static(path.join(__dirname, "public")));
+
+// مسار إضافي للتأكد من فتح الصفحة الرئيسية
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
+
+// مسار لوحة الإدارة
+app.get("/admin", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "admin.html"));
+});
 
 const db = new Database(path.join(__dirname, "data.sqlite"));
 
@@ -64,6 +222,17 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS settings (
     key TEXT PRIMARY KEY,
     value TEXT
+  );
+  CREATE TABLE IF NOT EXISTS ice_flavors (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    is_active INTEGER NOT NULL DEFAULT 1
+  );
+  CREATE TABLE IF NOT EXISTS accounting_adjustments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    date TEXT NOT NULL,
+    amount REAL NOT NULL,
+    note TEXT
   );
   INSERT OR IGNORE INTO settings (key, value) VALUES ('cafe_open', 'true');
 `);
@@ -241,10 +410,24 @@ app.get("/api/orders/by-no/:orderNo", (req, res) => {
   });
 });
 
+app.post("/api/orders/:id/arrived", (req, res) => {
+  const id = req.params.id;
+  const order = db.prepare("SELECT * FROM orders WHERE id = ?").get(id);
+  if (!order) return res.status(404).json({ ok: false });
+  const items = db.prepare("SELECT * FROM order_items WHERE order_id = ?").all(id);
+  io.emit("order_arrived", { order, items });
+  res.json({ ok: true });
+});
+
 // ===== Settings =====
 app.get("/api/settings", (req, res) => {
   const row = db.prepare("SELECT value FROM settings WHERE key = 'cafe_open'").get();
-  res.json({ cafe_open: row ? row.value === 'true' : true });
+  const manualOpen = row ? row.value === 'true' : true;
+  res.json({ 
+    cafe_open: manualOpen, 
+    manual_override: manualOpen, 
+    working_hours: true 
+  });
 });
 
 app.put("/api/admin/settings", requireAdmin, (req, res) => {
@@ -297,6 +480,12 @@ app.get("/api/orders/by-id/:id", (req, res) => {
 
 // إنشاء طلب من موقع الطلب
 app.post("/api/orders", (req, res) => {
+  const row = db.prepare("SELECT value FROM settings WHERE key = 'cafe_open'").get();
+  const manualOpen = row ? row.value === 'true' : true;
+  if (!manualOpen) {
+    return res.status(400).json({ ok: false, errors: ["نأسف، الكافيه مغلق حالياً"] });
+  }
+
   const body = req.body || {};
   const errors = validateOrderPayload(body);
   if (errors.length) return res.status(400).json({ ok: false, errors });
@@ -473,6 +662,165 @@ app.delete("/api/orders/:id", (req, res) => {
 });
 
 
+// ===== Admin Accounting =====
+app.get("/api/admin/accounting", requireAdmin, (req, res) => {
+  const view = req.query.view || "monthly";
+  const target = req.query.target || new Date().toISOString().slice(0, 7);
+
+  const orders = db.prepare(`SELECT created_at, total FROM orders WHERE status != 'cancelled' AND status != 'rejected'`).all();
+  const adjustments = db.prepare(`SELECT date, amount FROM accounting_adjustments`).all();
+
+  const daysMap = {};
+  
+  // Create all days in the month/year or populate dynamically
+  const isMonthly = view === "monthly";
+  
+  const getDayName = (dateStr) => {
+    const d = new Date(dateStr);
+    const days = ["الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
+    return days[d.getDay()] || "";
+  };
+
+  if (isMonthly && target.length === 7) {
+    const [y, m] = target.split("-");
+    const daysInMonth = new Date(y, m, 0).getDate();
+    for(let i = 1; i <= daysInMonth; i++) {
+      const d = String(i).padStart(2, '0');
+      const dateStr = `${target}-${d}`;
+      daysMap[dateStr] = {
+        date: dateStr,
+        dayName: getDayName(dateStr),
+        order_count: 0,
+        order_income: 0,
+        external_income: 0,
+        expense: 0,
+        net: 0
+      };
+    }
+  }
+
+  orders.forEach(o => {
+    const d = o.created_at.slice(0, 10);
+    if (!daysMap[d]) {
+      daysMap[d] = { date: d, dayName: getDayName(d), order_count: 0, order_income: 0, external_income: 0, expense: 0, net: 0 };
+    }
+    daysMap[d].order_count++;
+    daysMap[d].order_income += o.total;
+    daysMap[d].net += o.total;
+  });
+
+  adjustments.forEach(a => {
+    const d = a.date.slice(0, 10);
+    if (!daysMap[d]) {
+      daysMap[d] = { date: d, dayName: getDayName(d), order_count: 0, order_income: 0, external_income: 0, expense: 0, net: 0 };
+    }
+    if (a.amount >= 0) {
+      daysMap[d].external_income += a.amount;
+    } else {
+      daysMap[d].expense += Math.abs(a.amount);
+    }
+    daysMap[d].net += a.amount;
+  });
+
+  let ledger = Object.values(daysMap);
+  
+  // Filter based on view
+  if (view === "monthly") {
+    ledger = ledger.filter(r => r.date.startsWith(target));
+  } else if (view === "yearly") {
+    ledger = ledger.filter(r => r.date.startsWith(target));
+  }
+  
+  // Sort ascending by date (start from 1 going down)
+  ledger.sort((a, b) => a.date.localeCompare(b.date));
+
+  const rangeStats = { order_income: 0, external_income: 0, expense: 0, net: 0 };
+  ledger.forEach(r => {
+    rangeStats.order_income += r.order_income;
+    rangeStats.external_income += r.external_income;
+    rangeStats.expense += r.expense;
+    rangeStats.net += r.net;
+  });
+  
+  // Chart data: maintain ascending order
+  const chartData = [...ledger];
+
+  res.json({ ok: true, rangeStats, chartData, ledger });
+});
+
+app.post("/api/admin/accounting/adjust", requireAdmin, (req, res) => {
+  const { date, amount, note } = req.body;
+  if (!date || isNaN(amount)) return res.status(400).json({ ok: false });
+  // صيغة التاريخ ISO لسهولة المعالجة
+  const dt = date.length === 10 ? date + "T12:00:00.000Z" : date;
+  db.prepare(`INSERT INTO accounting_adjustments (date, amount, note) VALUES (?, ?, ?)`).run(dt, Number(amount), note || "");
+  res.json({ ok: true });
+});
+
+// ===== Admin Manual Order =====
+app.post("/api/admin/orders", requireAdmin, (req, res) => {
+  const body = req.body || {};
+  if (!Array.isArray(body.items) || body.items.length === 0) return res.status(400).json({ ok: false, error: "لا يوجد أصناف" });
+
+  const orderNo = makeOrderNo();
+  const createdAt = new Date().toISOString();
+  
+  const items = body.items.map((it) => {
+    const unit = Number(it.unit_price);
+    const qty = Number(it.qty);
+    return {
+      item_name: String(it.item_name).trim(),
+      unit_price: unit,
+      qty,
+      line_total: unit * qty
+    };
+  });
+  
+  const subtotal = items.reduce((a, b) => a + b.line_total, 0);
+  const total = subtotal;
+
+  const insertOrder = db.prepare(`
+    INSERT INTO orders
+  (order_no, created_at, status, customer_phone, customer_name, car_no, pickup_time, note, subtotal, vat_rate, vat_amount, total)
+VALUES
+  (@order_no, @created_at, @status, @customer_phone, @customer_name, @car_no, @pickup_time, @note, @subtotal, @vat_rate, @vat_amount, @total)
+  `);
+  
+  const insertItem = db.prepare(`
+    INSERT INTO order_items(order_id, item_name, unit_price, qty, line_total)
+VALUES(@order_id, @item_name, @unit_price, @qty, @line_total)
+  `);
+
+  const tx = db.transaction(() => {
+    const info = insertOrder.run({
+      order_no: orderNo,
+      created_at: createdAt,
+      status: "done", // الطلب اليدوي نخليه مكتمل مباشرة
+      customer_phone: "طلب يدوي",
+      customer_name: body.customer_name ? String(body.customer_name).trim() : "طلب محلي",
+      car_no: "—",
+      pickup_time: "—",
+      note: body.note ? String(body.note).trim() : null,
+      subtotal,
+      vat_rate: 0,
+      vat_amount: 0,
+      total
+    });
+    
+    const orderId = info.lastInsertRowid;
+    for (const it of items) insertItem.run({ order_id: orderId, ...it });
+    return orderId;
+  });
+
+  try {
+    const orderId = tx();
+    res.json({ ok: true, order_id: orderId });
+    io.emit("new_order");
+  } catch (e) {
+    res.status(500).json({ ok: false, error: "فشل حفظ الطلب" });
+  }
+});
+
 // ===== Admin Menu Management =====
 app.get("/api/admin/menu/categories", requireAdmin, (req, res) => {
   const rows = db.prepare("SELECT DISTINCT category FROM menu_items ORDER BY category ASC").all();
@@ -521,6 +869,56 @@ app.put("/api/admin/menu/items/:id", requireAdmin, (req, res) => {
     id
   );
 
+  res.json({ ok: true });
+  io.emit("menu_updated");
+});
+
+// === نكهات الأيسكريم ===
+app.get("/api/flavors", (req, res) => {
+  const rows = db.prepare(`SELECT * FROM ice_flavors WHERE is_active = 1`).all();
+  res.json({ ok: true, flavors: rows });
+});
+
+app.get("/api/admin/flavors", requireAdmin, (req, res) => {
+  const rows = db.prepare(`SELECT * FROM ice_flavors`).all();
+  res.json({ ok: true, flavors: rows });
+});
+
+app.post("/api/admin/flavors", requireAdmin, (req, res) => {
+  const { name } = req.body;
+  if (!name) return res.status(400).json({ ok: false });
+  db.prepare(`INSERT INTO ice_flavors (name) VALUES (?)`).run(name);
+  res.json({ ok: true });
+  io.emit("menu_updated");
+});
+
+app.post("/api/admin/flavors/set", requireAdmin, (req, res) => {
+  const { flavors } = req.body;
+  if (!Array.isArray(flavors)) return res.status(400).json({ ok: false });
+  
+  db.transaction(() => {
+    db.prepare("DELETE FROM ice_flavors").run();
+    const stmt = db.prepare("INSERT INTO ice_flavors (name) VALUES (?)");
+    for (const f of flavors) {
+      if (f && f.trim()) stmt.run(f.trim());
+    }
+  })();
+  
+  res.json({ ok: true });
+  io.emit("menu_updated");
+});
+
+app.patch("/api/admin/flavors/:id", requireAdmin, (req, res) => {
+  const { id } = req.params;
+  const { is_active } = req.body;
+  db.prepare(`UPDATE ice_flavors SET is_active = ? WHERE id = ?`).run(is_active ? 1 : 0, id);
+  res.json({ ok: true });
+  io.emit("menu_updated");
+});
+
+app.delete("/api/admin/flavors/:id", requireAdmin, (req, res) => {
+  const { id } = req.params;
+  db.prepare(`DELETE FROM ice_flavors WHERE id = ?`).run(id);
   res.json({ ok: true });
   io.emit("menu_updated");
 });

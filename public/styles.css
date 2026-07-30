@@ -77,8 +77,10 @@ a {
   width: 44px;
   height: 44px;
   border-radius: 12px;
-  background: rgba(255, 255, 255, .06);
-  padding: 6px
+  background: #f8f9fa;
+  padding: 6px;
+  object-fit: contain;
+  flex-shrink: 0;
 }
 
 .brandName {

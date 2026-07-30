@@ -36,6 +36,7 @@ const currentCategoryTitle = document.getElementById("currentCategoryTitle");
 // State
 let cart = [];
 let MENU = [];
+let FLAVORS = [];
 let CAFE_OPEN = true;
 let currentTab = "all";
 
@@ -196,7 +197,10 @@ function renderMenu() {
   }
 
   // --- Cinnamon Special Notice ---
-  if (currentTab === "السينامون") {
+  const cinCat = MENU.find(c => c.name === "السينامون" || c.tag === "السينامون");
+  const hasCinnamon = cinCat && cinCat.items && cinCat.items.length > 0;
+
+  if (currentTab === "السينامون" && !hasCinnamon) {
     menuList.innerHTML = `
       <div style="grid-column: 1 / -1; text-align: center; padding: 50px 24px; background: rgba(255,255,255,0.03); border: 2px dashed var(--teal); border-radius: 28px; margin: 20px 0;">
         <div style="font-size: 4rem; margin-bottom: 20px;">🥮</div>
@@ -247,6 +251,12 @@ function renderMenu() {
           const prod = { ...it, displayName: baseName, variants: [], isGroup: true };
           nameMap.set(baseName, prod);
           grouped.push(prod);
+        } else {
+          // إذا كان هذا الصنف يحتوي على صورة والمنتج المجموع حالياً لا يحتوي، نحدث الصورة لتظهر
+          const existing = nameMap.get(baseName);
+          if (!existing.image_url && it.image_url) {
+            existing.image_url = it.image_url;
+          }
         }
         nameMap.get(baseName).variants.push({ ...it, variantLabel: variantName });
       } else {
@@ -270,7 +280,7 @@ function renderMenu() {
       const hasVariants = prod.variants.length > 1;
 
       return `
-                <div class="item" id="prod-${catIndex}-${pIdx}">
+                <div class="item" id="prod-${catIndex}-${pIdx}" data-main-img="${prod.image_url || ''}">
                   <img class="itemImg" 
                     src="${prod.image_url || `https://placehold.co/600x400/222/FFF?text=${encodeURIComponent(prod.displayName)}`}" 
                     alt="${prod.displayName}"
@@ -285,6 +295,7 @@ function renderMenu() {
                         ${prod.variants.map((v, vIdx) => `
                           <button class="varBtn ${(vIdx === 0 && !isIceCream) ? 'active' : ''}" 
                             data-type="size"
+                            data-vimg="${v.image_url || ''}"
                             onclick="selectVariant(${catIndex}, ${pIdx}, ${vIdx}, ${v.price}, '${v.id}')">
                             ${v.variantLabel}
                           </button>
@@ -297,6 +308,14 @@ function renderMenu() {
                         <div style="width:100%; font-size:0.7rem; color:var(--muted); margin-bottom:2px;">اختر التعبئة:</div>
                         <button class="varBtn" data-type="pack" onclick="selectIcePack(${catIndex}, ${pIdx}, 'كوب')">كوب</button>
                         <button class="varBtn" data-type="pack" onclick="selectIcePack(${catIndex}, ${pIdx}, 'بسكوت')">بسكوت</button>
+                      </div>
+
+                      <div class="variants" style="gap:4px; margin-top:10px;">
+                        <div style="width:100%; font-size:0.7rem; color:var(--muted); margin-bottom:2px;">اختر النكهة:</div>
+                        ${FLAVORS.map(f => `
+                          <button class="varBtn" data-type="flavor" data-flavor="${f.name}" onclick="selectFlavor(${catIndex}, ${pIdx}, '${f.name}')">${f.name}</button>
+                        `).join("")}
+                        <button class="varBtn" data-type="flavor" data-flavor="مكس" onclick="selectFlavor(${catIndex}, ${pIdx}, 'مكس')">مكس ✨</button>
                       </div>
                     ` : ""}
                   </div>
@@ -322,9 +341,22 @@ window.selectVariant = (catIdx, pIdx, vIdx, price, itemId) => {
   if (!card) return;
 
   // تحديث الأزرار (الحجم)
-  card.querySelectorAll('.varBtn[data-type="size"]').forEach((btn, i) => {
+  const sizeBtns = card.querySelectorAll('.varBtn[data-type="size"]');
+  sizeBtns.forEach((btn, i) => {
     btn.classList.toggle('active', i === vIdx);
   });
+
+  // تحديث الصورة إذا كانت متوفرة للصنف المختار
+  const selectedBtn = sizeBtns[vIdx];
+  if (selectedBtn) {
+    const vImg = selectedBtn.getAttribute("data-vimg");
+    const mainImg = card.getAttribute("data-main-img");
+    const imgEl = card.querySelector(".itemImg");
+    if (imgEl) {
+      const finalImg = vImg || mainImg;
+      if (finalImg) imgEl.src = finalImg;
+    }
+  }
 
   // إذا لم يكن هناك أزرار محددة النوع (للمنتجات القديمة)
   if (card.querySelectorAll('.varBtn[data-type="size"]').length === 0) {
@@ -351,6 +383,17 @@ window.selectIcePack = (catIdx, pIdx, pack) => {
   updateIceBtn(catIdx, pIdx);
 };
 
+window.selectFlavor = (catIdx, pIdx, flavor) => {
+  const card = document.getElementById(`prod-${catIdx}-${pIdx}`);
+  if (!card) return;
+
+  card.querySelectorAll('.varBtn[data-type="flavor"]').forEach(btn => {
+    btn.classList.toggle('active', btn.getAttribute('data-flavor') === flavor);
+  });
+
+  updateIceBtn(catIdx, pIdx);
+};
+
 function updateIceBtn(catIdx, pIdx) {
   const card = document.getElementById(`prod-${catIdx}-${pIdx}`);
   if (!card) return;
@@ -360,11 +403,12 @@ function updateIceBtn(catIdx, pIdx) {
 
   const sizeBtn = card.querySelector('.varBtn[data-type="size"].active');
   const packBtn = card.querySelector('.varBtn[data-type="pack"].active');
+  const flavorBtn = card.querySelector('.varBtn[data-type="flavor"].active');
 
   if (isIceCream) {
-    if (sizeBtn && packBtn) {
+    if (sizeBtn && packBtn && flavorBtn) {
       const price = parseFloat(document.getElementById(`price-${catIdx}-${pIdx}`).innerText);
-      const label = `${sizeBtn.innerText.trim()} - ${packBtn.innerText.trim()}`;
+      const label = `${sizeBtn.innerText.trim()} - ${packBtn.innerText.trim()} - ${flavorBtn.innerText.trim()}`;
       const title = card.querySelector('.itemTitle').innerText;
 
       addBtn.disabled = false;
@@ -485,12 +529,23 @@ async function loadMenu() {
   }
 }
 
+async function loadFlavors() {
+  try {
+    const res = await fetch("/api/flavors", { cache: "no-store" });
+    const data = await res.json();
+    FLAVORS = data.flavors || [];
+  } catch {
+    FLAVORS = [];
+  }
+}
+
 // ============== Real-time Sync (Socket.io) ==============
 const socket = typeof io !== 'undefined' ? io() : null;
 
 async function sync() {
   await loadSettings();
   await loadMenu();
+  await loadFlavors();
 
   const closedEl = document.getElementById("closedMessage");
   const mainContentEl = document.getElementById("mainContent");
@@ -515,7 +570,7 @@ if (socket) {
     sync();
   });
   socket.on("menu_updated", () => {
-    console.log("Menu updated real-time!");
+    console.log("Menu updated real-time.");
     sync();
   });
 }
@@ -560,6 +615,15 @@ async function init() {
 
   if (searchInput) {
     searchInput.addEventListener("input", renderMenu);
+  }
+
+  // ===== Real-time Updates (Socket.io) =====
+  const socket = typeof io !== 'undefined' ? io() : null;
+  if (socket) {
+    socket.on("menu_updated", () => {
+      console.log("Menu updated from server... syncing.");
+      sync();
+    });
   }
 
   // التحميل الأول

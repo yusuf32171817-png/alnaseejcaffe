@@ -149,7 +149,8 @@
       <p class="okSub">نشكرك على اختيارك النسيج كافيه. سيتم تجهيز طلبك بأسرع وقت.</p>
 
       <div class="paymentSection">
-        <button id="btnPay" class="btn btnPrimary btnBlock" style="padding: 16px; font-size: 1.2rem;">💳 ادفع الآن
+        <button id="btnArrived" class="btn btnPrimary btnBlock" style="padding: 16px; font-size: 1.2rem; background: var(--teal); margin-bottom: 15px;">🔔 أنا وصلت المحل</button>
+        <button id="btnPay" class="btn btnPrimary btnBlock" style="padding: 16px; font-size: 1.2rem; background: #222; border: 1px solid var(--stroke);">💳 ادفع الآن
           (BenefitPay)</button>
         <p style="font-size: 0.85rem; color: var(--muted); margin-top: 10px;">أو يمكنك الدفع للهاتف عند الاستلام</p>
       </div>
@@ -220,6 +221,37 @@
     window.onclick = (e) => {
       if (e.target === payModal) closePay();
     };
+
+    const btnArrived = document.getElementById("btnArrived");
+    if (btnArrived) {
+      btnArrived.onclick = async () => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const orderId = urlParams.get('orderId');
+        if (!orderId) {
+          toast("رقم الطلب غير موجود");
+          return;
+        }
+
+        btnArrived.disabled = true;
+        btnArrived.textContent = "جاري الإرسال...";
+        try {
+          const res = await fetch(`/api/orders/${orderId}/arrived`, { method: "POST" });
+          const data = await res.json();
+          if (data.ok) {
+            toast("تم إشعار الموظفين بوصولك ✅");
+            btnArrived.textContent = "تم إرسال الإشعار ✔️";
+          } else {
+            toast("حدث خطأ، يرجى المحاولة لاحقاً");
+            btnArrived.disabled = false;
+            btnArrived.textContent = "🔔 أنا وصلت المحل";
+          }
+        } catch(e) {
+          toast("تعذر الاتصال بالخادم");
+          btnArrived.disabled = false;
+          btnArrived.textContent = "🔔 أنا وصلت المحل";
+        }
+      };
+    }
   </script>
 </body>
 
