@@ -441,10 +441,15 @@ body {
 .tabs {
   display: flex;
   gap: 10px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  justify-content: flex-start;
 }
 
 .tab {
+  flex: 0 0 auto;
+  white-space: nowrap;
   padding: 8px 16px;
   background: transparent;
   color: var(--muted);
@@ -452,7 +457,11 @@ body {
   cursor: pointer;
   font-weight: bold;
   transition: 0.3s;
+  font-size: 1rem;
 }
+
+
+
 
 .tab:hover {
   color: var(--text);
@@ -494,6 +503,47 @@ body {
   border-color: #ff5050;
 }
 
+/* ===== Ledger Scrollable Table ===== */
+.ledger-scroll-wrap {
+  overflow-x: scroll;
+  overflow-y: visible;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x;       /* Only horizontal touch scroll - doesn't move the page */
+  border-radius: 10px;
+  /* Show a peek of the next column so user knows it's scrollable */
+  max-width: 100%;
+}
+
+.ledger-table {
+  width: max-content;        /* Table takes its natural full width */
+  min-width: 650px;
+  border-collapse: collapse;
+  text-align: right;
+  font-size: 0.95rem;
+}
+
+/* ===== Filter Row ===== */
+.filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+  margin-bottom: 15px;
+  padding-bottom: 15px;
+  border-bottom: 1px dashed rgba(255,255,255,0.1);
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.filter-year {
+  width: 100px;
+}
+
+/* ===== Responsive ===== */
 @media (max-width: 768px) {
   .orderGrid {
     grid-template-columns: 1fr;
@@ -508,6 +558,15 @@ body {
 
   .kpis {
     grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .kpi {
+    padding: 12px !important;
+  }
+
+  .kpiValue {
+    font-size: 1.1rem !important;
   }
 
   .income-expense-grid {
@@ -519,4 +578,29 @@ body {
     align-items: flex-start;
     gap: 10px;
   }
-}
+
+  .ledger-table {
+    font-size: 0.85rem;
+  }
+
+  /* Filters wrap nicely */
+  .ledger-scroll-wrap + div,
+  section.card > div[style*="flex"] {
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 480px) {
+  .kpis {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .tab {
+    padding: 6px 10px;
+    font-size: 0.85rem;
+  }
+
+  h2 { font-size: 1.1rem; }
+  h3 { font-size: 1rem; }
+}
+

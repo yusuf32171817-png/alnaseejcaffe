@@ -12,6 +12,26 @@ function checkPass() {
 }
 checkPass();
 
+// ===== Ledger Touch Scroll Isolation =====
+// Prevents the page from scrolling when user scrolls the ledger table on mobile
+document.addEventListener('DOMContentLoaded', () => {
+  const ledger = document.querySelector('.ledger-scroll-wrap');
+  if (!ledger) return;
+  let startX = 0, startScrollLeft = 0;
+
+  ledger.addEventListener('touchstart', (e) => {
+    startX = e.touches[0].clientX;
+    startScrollLeft = ledger.scrollLeft;
+  }, { passive: true });
+
+  ledger.addEventListener('touchmove', (e) => {
+    const dx = startX - e.touches[0].clientX;
+    ledger.scrollLeft = startScrollLeft + dx;
+    e.stopPropagation();
+  }, { passive: true });
+});
+
+
 async function api(url, opts = {}) {
   const headers = opts.headers || {};
   const pass = sessionStorage.getItem("adminPass");

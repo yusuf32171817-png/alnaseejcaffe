@@ -135,9 +135,9 @@
         <h2 style="margin:0 0 10px;">سجل الحسابات اليومي</h2>
         
         <!-- أدوات الفلترة والتقارير داخل السجل -->
-        <div style="display: flex; gap: 15px; align-items: flex-end; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px dashed rgba(255,255,255,0.1);">
-          <div style="display: flex; flex-direction: column; gap: 5px;">
-            <label class="hint" style="color: var(--muted);">الشهر:</label>
+        <div class="filter-row">
+          <div class="filter-group">
+            <label class="hint">الشهر:</label>
             <select id="ledgerFilterMonthSelect" class="input">
               <option value="01">يناير (1)</option>
               <option value="02">فبراير (2)</option>
@@ -153,15 +153,15 @@
               <option value="12">ديسمبر (12)</option>
             </select>
           </div>
-          <div style="display: flex; flex-direction: column; gap: 5px;">
-            <label class="hint" style="color: var(--muted);">السنة:</label>
-            <input type="number" id="ledgerFilterYearInput" class="input" style="width:100px;" value="2026" min="2024" max="2100">
+          <div class="filter-group">
+            <label class="hint">السنة:</label>
+            <input type="number" id="ledgerFilterYearInput" class="input filter-year" value="2026" min="2024" max="2100">
           </div>
-          <button id="btnApplyLedgerFilter" class="btn btnPrimary" style="padding: 10px 20px;">تحديث السجل 🔄</button>
+          <button id="btnApplyLedgerFilter" class="btn btnPrimary">تحديث السجل 🔄</button>
         </div>
 
-        <div style="overflow-x: auto;">
-          <table style="width:100%; border-collapse:collapse; text-align:right; font-size: 1rem;">
+        <div class="ledger-scroll-wrap">
+          <table class="ledger-table">
             <thead>
               <tr style="border-bottom:2px solid rgba(255,255,255,0.1); color: var(--muted);">
                 <th style="padding:12px 10px;">اليوم</th>
@@ -211,41 +211,36 @@
         <h2 style="margin:0 0 15px;">المنحنى البياني للأرباح 📈</h2>
         
         <!-- اختيار شهر أو سنة للرسم البياني -->
-        <div style="display: flex; gap: 15px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px dashed rgba(255,255,255,0.1);">
-          <div style="display: flex; flex-direction: column; gap: 5px;">
-            <label class="hint" style="color: var(--muted);">نوع المنحنى:</label>
-            <select id="chartFilterMode" class="input" style="width: 140px; padding: 10px;">
+        <div class="filter-row">
+          <div class="filter-group">
+            <label class="hint">نوع المنحنى:</label>
+            <select id="chartFilterMode" class="input">
               <option value="monthly">منحنى لشهر</option>
               <option value="yearly">منحنى لسنة</option>
             </select>
           </div>
-          
-          <div id="chartMonthGroup" style="display: flex; gap: 15px;">
-            <div style="display: flex; flex-direction: column; gap: 5px;">
-              <label class="hint" style="color: var(--muted);">الشهر:</label>
-              <select id="chartFilterMonthSelect" class="input">
-                <option value="01">يناير (1)</option>
-                <option value="02">فبراير (2)</option>
-                <option value="03">مارس (3)</option>
-                <option value="04">أبريل (4)</option>
-                <option value="05">مايو (5)</option>
-                <option value="06">يونيو (6)</option>
-                <option value="07">يوليو (7)</option>
-                <option value="08">أغسطس (8)</option>
-                <option value="09">سبتمبر (9)</option>
-                <option value="10">أكتوبر (10)</option>
-                <option value="11">نوفمبر (11)</option>
-                <option value="12">ديسمبر (12)</option>
-              </select>
-            </div>
+          <div id="chartMonthGroup" class="filter-group">
+            <label class="hint">الشهر:</label>
+            <select id="chartFilterMonthSelect" class="input">
+              <option value="01">يناير (1)</option>
+              <option value="02">فبراير (2)</option>
+              <option value="03">مارس (3)</option>
+              <option value="04">أبريل (4)</option>
+              <option value="05">مايو (5)</option>
+              <option value="06">يونيو (6)</option>
+              <option value="07">يوليو (7)</option>
+              <option value="08">أغسطس (8)</option>
+              <option value="09">سبتمبر (9)</option>
+              <option value="10">أكتوبر (10)</option>
+              <option value="11">نوفمبر (11)</option>
+              <option value="12">ديسمبر (12)</option>
+            </select>
           </div>
-          
-          <div id="chartYearGroup" style="display: flex; flex-direction: column; gap: 5px;">
-            <label class="hint" style="color: var(--muted);">السنة:</label>
-            <input type="number" id="chartFilterYearInput" class="input" style="width: 120px;" value="2026" min="2024" max="2100">
+          <div id="chartYearGroup" class="filter-group">
+            <label class="hint">السنة:</label>
+            <input type="number" id="chartFilterYearInput" class="input filter-year" value="2026" min="2024" max="2100">
           </div>
-          
-          <button id="btnApplyChartFilter" class="btn btnPrimary" style="padding: 10px 20px;">عرض المنحنى 📊</button>
+          <button id="btnApplyChartFilter" class="btn btnPrimary">عرض المنحنى 📊</button>
         </div>
 
         <div style="position: relative; height: 260px; width: 100%;">
