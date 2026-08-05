@@ -37,8 +37,138 @@ const currentCategoryTitle = document.getElementById("currentCategoryTitle");
 let cart = [];
 let MENU = [];
 let FLAVORS = [];
+let SLUSH_FLAVORS = [];
 let CAFE_OPEN = true;
 let currentTab = "all";
+let currentLang = localStorage.getItem('lang') || 'ar';
+
+// ===== Translations =====
+const T = {
+  ar: {
+    siteTitle: 'النسيج كافيه',
+    orderFood: 'طلب طعام',
+    knowUs: 'تعرف علينا',
+    cart: 'السلة',
+    yourCart: 'سلتك',
+    total: 'المجموع',
+    emptyCart: 'السلة فاضية.',
+    clear: 'تفريغ',
+    orderNow: 'اطلب الآن',
+    orderDetails: 'بيانات الطلب',
+    name: 'الاسم (مطلوب)',
+    namePlaceholder: 'اكتب اسمك هنا',
+    phone: 'رقم الهاتف (مطلوب)',
+    phonePlaceholder: 'مثال: 3xxxxxxx',
+    car: 'رقم السيارة (اختياري)',
+    carPlaceholder: 'مثال: 12345',
+    notes: 'ملاحظات (اختياري)',
+    notesPlaceholder: 'بدون سكر… زيادة صوص…',
+    confirm: 'تأكيد وإرسال الطلب',
+    addToCart: 'تمت الإضافة ✅',
+    addFirst: 'أضف أصناف للسلة أولاً 🛒',
+    cafeClosedMsg: 'الكافيه مغلق حالياً.',
+    searchPlaceholder: 'ابحث عن صنف…',
+    menu: 'المنيو',
+    prices: 'الأسعار بالدينار البحريني (BHD)',
+    chooseSize: 'اختر الحجم:',
+    chooseType: 'اختر النوع:',
+    choosePack: 'اختر التعبئة:',
+    chooseFlavor: 'اختر النكهة:',
+    chooseSlushFlavor: 'اختر نكهة السلاش:',
+    mix: 'مكس ✨',
+    cup: 'كوب',
+    biscuit: 'بسكوت',
+    choose: 'اختر',
+    pleaseChoose: 'يرجى الاختيار',
+    addBtn: '+ إضافة',
+    items: 'صنف',
+    all: 'الكل',
+    clearCart: 'تم تفريغ السلة',
+    workHours: 'أوقات العمل ⏰',
+    workTime: 'من 3 عصراً إلى 11 ليلاً',
+  },
+  en: {
+    siteTitle: 'Al Naseej Cafe',
+    orderFood: 'Food Ordering',
+    knowUs: 'About Us',
+    cart: 'Cart',
+    yourCart: 'Your Cart',
+    total: 'Total',
+    emptyCart: 'Cart is empty.',
+    clear: 'Clear',
+    orderNow: 'Order Now',
+    orderDetails: 'Order Details',
+    name: 'Name (required)',
+    namePlaceholder: 'Enter your name',
+    phone: 'Phone (required)',
+    phonePlaceholder: 'e.g. 3xxxxxxx',
+    car: 'Car number (optional)',
+    carPlaceholder: 'e.g. 12345',
+    notes: 'Notes (optional)',
+    notesPlaceholder: 'No sugar... extra sauce...',
+    confirm: 'Confirm & Place Order',
+    addToCart: 'Added ✅',
+    addFirst: 'Add items to cart first 🛒',
+    cafeClosedMsg: 'Cafe is currently closed.',
+    searchPlaceholder: 'Search for an item…',
+    menu: 'Menu',
+    prices: 'Prices in Bahraini Dinar (BHD)',
+    chooseSize: 'Choose size:',
+    chooseType: 'Choose type:',
+    choosePack: 'Choose packaging:',
+    chooseFlavor: 'Choose flavor:',
+    chooseSlushFlavor: 'Choose Slush flavor:',
+    mix: 'Mix ✨',
+    cup: 'Cup',
+    biscuit: 'Biscuit',
+    choose: 'Choose',
+    pleaseChoose: 'Please choose',
+    addBtn: '+ Add',
+    items: 'items',
+    all: 'All',
+    clearCart: 'Cart cleared',
+    workHours: 'Working Hours ⏰',
+    workTime: '3 PM to 11 PM',
+  }
+};
+
+function t(key) { return T[currentLang]?.[key] || T.ar[key] || key; }
+
+function applyLang() {
+  const isAr = currentLang === 'ar';
+  document.documentElement.lang = currentLang;
+  document.documentElement.dir = isAr ? 'rtl' : 'ltr';
+  // Update static elements
+  const el = (id) => document.getElementById(id);
+  const setTxt = (id, key) => { const e = el(id); if(e) e.textContent = t(key); };
+  setTxt('btnKnowUs', 'knowUs');
+  setTxt('cartSubtotalLine', 'total');
+  const brandSub = document.querySelector('.brandSub'); if(brandSub) brandSub.textContent = t('orderFood');
+  const brandName = document.querySelector('.brandName'); if(brandName) brandName.textContent = t('siteTitle');
+  const openCartBtn = el('btnOpenCart'); if(openCartBtn) openCartBtn.innerHTML = t('cart') + ` <span id="cartCount" class="badge">${openCartBtn.querySelector('#cartCount')?.textContent || 0}</span>`;
+  const drawerTitleEl = document.querySelector('.drawerTitle'); if(drawerTitleEl) drawerTitleEl.textContent = t('yourCart');
+  const clearBtn = el('btnClearCart'); if(clearBtn) clearBtn.textContent = t('clear');
+  const goCheckoutBtn = el('btnGoToCheckout'); if(goCheckoutBtn) goCheckoutBtn.textContent = t('orderNow');
+  const checkoutTitle = document.querySelector('.cardTitle'); if(checkoutTitle) checkoutTitle.textContent = t('orderDetails');
+  const nameLabel = document.querySelector('label[for="nameInput"]') || document.querySelectorAll('.label')[0]; if(nameLabel) nameLabel.textContent = t('name');
+  const nameInputEl = el('nameInput'); if(nameInputEl) nameInputEl.placeholder = t('namePlaceholder');
+  const phoneLabel = document.querySelectorAll('.label')[1]; if(phoneLabel) phoneLabel.textContent = t('phone');
+  const phoneInputEl = el('phoneInput'); if(phoneInputEl) phoneInputEl.placeholder = t('phonePlaceholder');
+  const carLabel = document.querySelectorAll('.label')[2]; if(carLabel) carLabel.textContent = t('car');
+  const carInputEl = el('carInput'); if(carInputEl) carInputEl.placeholder = t('carPlaceholder');
+  const noteLabel = document.querySelectorAll('.label')[3]; if(noteLabel) noteLabel.textContent = t('notes');
+  const noteInputEl = el('noteInput'); if(noteInputEl) noteInputEl.placeholder = t('notesPlaceholder');
+  const checkoutBtn = el('btnCheckout'); if(checkoutBtn) checkoutBtn.textContent = t('confirm');
+  const searchEl = el('searchInput'); if(searchEl) searchEl.placeholder = t('searchPlaceholder');
+  const menuTitle = el('currentCategoryTitle'); if(menuTitle && menuTitle.textContent === t('menu') || menuTitle?.textContent === 'المنيو' || menuTitle?.textContent === 'Menu') menuTitle.textContent = t('menu');
+  const catPrices = document.querySelector('.muted'); if(catPrices) catPrices.textContent = t('prices');
+  const floatBtn = el('btnFloatingCheckout'); if(floatBtn) { const badge = floatBtn.querySelector('.badge'); floatBtn.innerHTML = `<span>${t('orderNow')}</span><span id="floatingCartCount" class="badge">${badge?.textContent || 0}</span>`; }
+  const langBtn = el('btnLang'); if(langBtn) langBtn.textContent = isAr ? 'EN' : 'ع';
+  // Re-render menu with new language
+  renderTabs();
+  renderMenu();
+  renderCartDrawer();
+}
 
 // ================= Helpers =================
 
@@ -62,7 +192,8 @@ function renderCartBadge() {
 
   // Update Top Bar Cart
   if (cartCount) cartCount.textContent = count;
-  if (cartSubtotalLine) cartSubtotalLine.textContent = `المجموع: ${money(cartSubtotal())}`;
+  if (cartSubtotalLine) cartSubtotalLine.textContent = `${t('total')}: ${money(cartSubtotal())}`;
+
 
   // Update Floating Button
   if (floatingCartCount) floatingCartCount.textContent = count;
@@ -76,7 +207,8 @@ function renderCartDrawer() {
   if (!cartItemsEl) return;
 
   if (cart.length === 0) {
-    cartItemsEl.innerHTML = `<div class="hint">السلة فاضية.</div>`;
+    cartItemsEl.innerHTML = `<div class="hint">${t('emptyCart')}</div>`;
+
     renderCartBadge();
     return;
   }
@@ -165,14 +297,14 @@ function renderTabs() {
 
   // الأقسام بالترتيب الذي طلبه المستخدم
   const tabs = [
-    { id: "all", label: "الكل" },
+    { id: "all", label: t('all') },
     { id: "الكيك", label: "الكيك" },
-    { id: "السينامون", label: "سينامون" },
-    { id: "الكرواسون الجامبو", label: "الكرواسون" },
-    { id: "الكوكيز", label: "الكوكيز" },
+    { id: "سينامون", label: "سينامون" },
+    { id: "كرواسون", label: "كرواسون" },
     { id: "المفن", label: "المفن" },
-    { id: "المشروبات", label: "المشروبات" },
-    { id: "أصناف أخرى", label: "أخرى" }
+    { id: "المشروبات الحارة", label: "المشروبات الحارة" },
+    { id: "المشروبات الباردة", label: "المشروبات الباردة" },
+    { id: "اخرى", label: "اخرى" }
   ];
 
   categoryTabs.innerHTML = tabs.map(tab => {
@@ -220,11 +352,11 @@ function renderMenu() {
   menuList.innerHTML = MENU.map((cat, catIndex) => {
     // تصفية حسب القسم المختار
     if (currentTab !== "all") {
-      if (currentTab === "المشروبات") {
-        // إذا اختار المشروبات، نعرض كل ما هو "tag: المشروبات"
-        if (cat.tag !== "المشروبات") return "";
+      if (currentTab === "المشروبات الحارة") {
+        if (!["المشروبات الحارة", "القهوة الحارة"].includes(cat.name)) return "";
+      } else if (currentTab === "المشروبات الباردة") {
+        if (!["المشروبات الباردة", "القهوة الباردة"].includes(cat.name)) return "";
       } else {
-        // غير ذلك نقارن باسم القسم (category)
         if (cat.name !== currentTab) return "";
       }
     }
@@ -271,11 +403,13 @@ function renderMenu() {
             <div class="catName">${cat.name}</div>
             <div class="itemSub">${cat.tag}</div>
           </div>
-          <div class="catTag">${filtered.length} صنف</div>
+          <div class="catTag">${filtered.length} ${t('items')}</div>
+
         </div>
         <div class="items">
           ${grouped.map((prod, pIdx) => {
       const isIceCream = prod.displayName.includes("ايسكريم") || prod.displayName.includes("أسكريم");
+      const isSlush = prod.displayName.includes("سلاش");
       const activeVariant = prod.variants[0];
       const hasVariants = prod.variants.length > 1;
 
@@ -291,7 +425,8 @@ function renderMenu() {
                     
                     ${hasVariants ? `
                       <div class="variants" style="gap:4px;">
-                        <div style="width:100%; font-size:0.7rem; color:var(--muted); margin-bottom:2px;">${isIceCream ? 'اختر الحجم:' : 'اختر النوع:'}</div>
+                        <div style="width:100%; font-size:0.7rem; color:var(--muted); margin-bottom:2px;">${isIceCream ? t('chooseSize') : t('chooseType')}</div>
+
                         ${prod.variants.map((v, vIdx) => `
                           <button class="varBtn ${(vIdx === 0 && !isIceCream) ? 'active' : ''}" 
                             data-type="size"
@@ -305,26 +440,36 @@ function renderMenu() {
 
                     ${isIceCream ? `
                       <div class="variants" style="gap:4px; margin-top:10px;">
-                        <div style="width:100%; font-size:0.7rem; color:var(--muted); margin-bottom:2px;">اختر التعبئة:</div>
-                        <button class="varBtn" data-type="pack" onclick="selectIcePack(${catIndex}, ${pIdx}, 'كوب')">كوب</button>
-                        <button class="varBtn" data-type="pack" onclick="selectIcePack(${catIndex}, ${pIdx}, 'بسكوت')">بسكوت</button>
+                        <div style="width:100%; font-size:0.7rem; color:var(--muted); margin-bottom:2px;">${t('choosePack')}</div>
+                        <button class="varBtn" data-type="pack" onclick="selectIcePack(${catIndex}, ${pIdx}, '${t('cup')}')">${t('cup')}</button>
+                        <button class="varBtn" data-type="pack" onclick="selectIcePack(${catIndex}, ${pIdx}, '${t('biscuit')}')">${t('biscuit')}</button>
                       </div>
 
                       <div class="variants" style="gap:4px; margin-top:10px;">
-                        <div style="width:100%; font-size:0.7rem; color:var(--muted); margin-bottom:2px;">اختر النكهة:</div>
+                        <div style="width:100%; font-size:0.7rem; color:var(--muted); margin-bottom:2px;">${t('chooseFlavor')}</div>
                         ${FLAVORS.map(f => `
                           <button class="varBtn" data-type="flavor" data-flavor="${f.name}" onclick="selectFlavor(${catIndex}, ${pIdx}, '${f.name}')">${f.name}</button>
                         `).join("")}
-                        <button class="varBtn" data-type="flavor" data-flavor="مكس" onclick="selectFlavor(${catIndex}, ${pIdx}, 'مكس')">مكس ✨</button>
+                        <button class="varBtn" data-type="flavor" data-flavor="${t('mix')}" onclick="selectFlavor(${catIndex}, ${pIdx}, '${t('mix')}')">${t('mix')}</button>
+                      </div>
+                    ` : ""}
+
+                    ${isSlush && SLUSH_FLAVORS.length > 0 ? `
+                      <div class="variants" style="gap:4px; margin-top:10px;">
+                        <div style="width:100%; font-size:0.7rem; color:var(--muted); margin-bottom:2px;">${t('chooseSlushFlavor')}</div>
+                        ${SLUSH_FLAVORS.map(f => `
+                          <button class="varBtn" data-type="slush-flavor" data-flavor="${f.name}" onclick="selectSlushFlavor(${catIndex}, ${pIdx}, '${f.name}')">${f.name}</button>
+                        `).join("")}
+                        <button class="varBtn" data-type="slush-flavor" data-flavor="${t('mix')}" onclick="selectSlushFlavor(${catIndex}, ${pIdx}, '${t('mix')}')">${t('mix')}</button>
                       </div>
                     ` : ""}
                   </div>
                   <div class="itemRight">
-                    <div class="price" id="price-${catIndex}-${pIdx}">${isIceCream ? 'اختر' : money(activeVariant.price)}</div>
+                    <div class="price" id="price-${catIndex}-${pIdx}">${(isIceCream || isSlush) ? t('choose') : money(activeVariant.price)}</div>
                     <button class="addBtn" id="add-${catIndex}-${pIdx}" 
-                      ${isIceCream ? 'disabled style="opacity:0.5"' : ''}
+                      ${(isIceCream || isSlush) ? 'disabled style="opacity:0.5"' : ''}
                       onclick="addFromGroup('${prod.displayName}', ${activeVariant.price}, '${prod.variants[0].variantLabel}')">
-                      ${isIceCream ? 'يرجى الاختيار' : '+ إضافة'}
+                      ${(isIceCream || isSlush) ? t('pleaseChoose') : t('addBtn')}
                     </button>
                   </div>
                 </div>
@@ -398,44 +543,76 @@ function updateIceBtn(catIdx, pIdx) {
   const card = document.getElementById(`prod-${catIdx}-${pIdx}`);
   if (!card) return;
 
-  const isIceCream = card.querySelector('.itemTitle').innerText.includes("ايسكريم") || card.querySelector('.itemTitle').innerText.includes("أسكريم");
+  const title = card.querySelector('.itemTitle').innerText;
+  const isIceCream = title.includes("ايسكريم") || title.includes("أسكريم");
+  const isSlush = title.includes("سلاش");
   const addBtn = document.getElementById(`add-${catIdx}-${pIdx}`);
 
   const sizeBtn = card.querySelector('.varBtn[data-type="size"].active');
   const packBtn = card.querySelector('.varBtn[data-type="pack"].active');
   const flavorBtn = card.querySelector('.varBtn[data-type="flavor"].active');
+  const slushFlavorBtn = card.querySelector('.varBtn[data-type="slush-flavor"].active');
 
-  if (isIceCream) {
-    if (sizeBtn && packBtn && flavorBtn) {
-      const price = parseFloat(document.getElementById(`price-${catIdx}-${pIdx}`).innerText);
-      const label = `${sizeBtn.innerText.trim()} - ${packBtn.innerText.trim()} - ${flavorBtn.innerText.trim()}`;
-      const title = card.querySelector('.itemTitle').innerText;
-
+  if (isSlush) {
+    if (sizeBtn && slushFlavorBtn) {
+      const price = parseFloat(document.getElementById(`price-${catIdx}-${pIdx}`).innerText) || 0;
+      const label = `${sizeBtn.innerText.trim()} - ${slushFlavorBtn.innerText.trim()}`;
       addBtn.disabled = false;
       addBtn.style.opacity = "1";
-      addBtn.innerText = "+ إضافة";
+      addBtn.innerText = t('addBtn');
       addBtn.onclick = () => addFromGroup(title, price, label);
     } else {
       addBtn.disabled = true;
       addBtn.style.opacity = "0.5";
-      addBtn.innerText = "يرجى الاختيار";
+      addBtn.innerText = t('pleaseChoose');
+    }
+  } else if (isIceCream) {
+    if (sizeBtn && packBtn && flavorBtn) {
+      const price = parseFloat(document.getElementById(`price-${catIdx}-${pIdx}`).innerText);
+      const label = `${sizeBtn.innerText.trim()} - ${packBtn.innerText.trim()} - ${flavorBtn.innerText.trim()}`;
+      addBtn.disabled = false;
+      addBtn.style.opacity = "1";
+      addBtn.innerText = t('addBtn');
+      addBtn.onclick = () => addFromGroup(title, price, label);
+    } else {
+      addBtn.disabled = true;
+      addBtn.style.opacity = "0.5";
+      addBtn.innerText = t('pleaseChoose');
     }
   } else {
-    // للمنتجات العادية
     const activeSize = card.querySelector('.varBtn.active');
     if (activeSize) {
       const price = parseFloat(document.getElementById(`price-${catIdx}-${pIdx}`).innerText);
       const label = activeSize.innerText.trim();
-      const title = card.querySelector('.itemTitle').innerText;
       addBtn.onclick = () => addFromGroup(title, price, label);
     }
   }
 }
 
+window.selectSlushFlavor = (catIdx, pIdx, flavor) => {
+  const card = document.getElementById(`prod-${catIdx}-${pIdx}`);
+  if (!card) return;
+  card.querySelectorAll('.varBtn[data-type="slush-flavor"]').forEach(btn => {
+    btn.classList.toggle('active', btn.getAttribute('data-flavor') === flavor);
+  });
+  // If no size variant, set price from the product's first variant
+  const priceEl = document.getElementById(`price-${catIdx}-${pIdx}`);
+  if (priceEl && priceEl.innerText === t('choose')) {
+    // find first available price from the card context
+    const sizeBtn = card.querySelector('.varBtn[data-type="size"]');
+    if (!sizeBtn) {
+      // no size - price is from first variant, look up in MENU
+      // It's already set during render, just enable button
+    }
+  }
+  updateIceBtn(catIdx, pIdx);
+};
+
 window.addFromGroup = (baseName, price, variantLabel) => {
   const fullName = variantLabel ? `${baseName} (${variantLabel})` : baseName;
   addToCart(fullName, price);
 };
+
 
 // ============== Checkout ==============
 
@@ -539,6 +716,16 @@ async function loadFlavors() {
   }
 }
 
+async function loadSlushFlavors() {
+  try {
+    const res = await fetch("/api/slush-flavors", { cache: "no-store" });
+    const data = await res.json();
+    SLUSH_FLAVORS = data.flavors || [];
+  } catch {
+    SLUSH_FLAVORS = [];
+  }
+}
+
 // ============== Real-time Sync (Socket.io) ==============
 const socket = typeof io !== 'undefined' ? io() : null;
 
@@ -546,6 +733,8 @@ async function sync() {
   await loadSettings();
   await loadMenu();
   await loadFlavors();
+  await loadSlushFlavors();
+
 
   const closedEl = document.getElementById("closedMessage");
   const mainContentEl = document.getElementById("mainContent");
@@ -576,6 +765,14 @@ if (socket) {
 }
 
 async function init() {
+  // Language toggle
+  const btnLang = document.getElementById('btnLang');
+  btnLang?.addEventListener('click', () => {
+    currentLang = currentLang === 'ar' ? 'en' : 'ar';
+    localStorage.setItem('lang', currentLang);
+    applyLang();
+  });
+
   btnOpenCart?.addEventListener("click", openCart);
   btnCloseCart?.addEventListener("click", closeCart);
   btnGoToCheckout?.addEventListener("click", openCheckout);

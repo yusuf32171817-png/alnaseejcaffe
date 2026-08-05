@@ -483,11 +483,77 @@ btnSaveFlavors?.addEventListener("click", async () => {
   }
 });
 
+// === إدارة نكهات السلاش ===
+const slushFlavorsAdmin = document.getElementById("slushFlavorsAdmin");
+const slushFlavorName = document.getElementById("slushFlavorName");
+const btnAddSlushFlavor = document.getElementById("btnAddSlushFlavor");
+const slushFlavorStatus = document.getElementById("slushFlavorStatus");
+let currentSlushFlavors = [];
+
+async function loadSlushFlavorsAdmin() {
+  if (!slushFlavorsAdmin) return;
+  const res = await api("/api/admin/slush-flavors");
+  const data = await res.json();
+  currentSlushFlavors = data.flavors || [];
+  renderSlushFlavorsAdmin();
+}
+
+function renderSlushFlavorsAdmin() {
+  if (!slushFlavorsAdmin) return;
+  if (currentSlushFlavors.length === 0) {
+    slushFlavorsAdmin.innerHTML = '<div style="color:var(--muted)">لا توجد نكهات سلاش مضافة.</div>';
+    return;
+  }
+  slushFlavorsAdmin.innerHTML = currentSlushFlavors.map(f => `
+    <div style="display:flex; align-items:center; gap:8px; padding:6px 12px; background:rgba(0,0,0,0.2); border-radius:20px;">
+      <span style="font-size:0.9rem;">${f.name}</span>
+      <button style="background:transparent; border:none; color:#ff4444; cursor:pointer;" onclick="deleteSlushFlavor(${f.id})">✖</button>
+    </div>
+  `).join("");
+}
+
+async function saveSlushFlavors(flavors) {
+  const names = flavors.map(f => f.name);
+  const res = await api("/api/admin/slush-flavors/set", {
+    method: "POST",
+    body: JSON.stringify({ flavors: names })
+  });
+  return res.ok;
+}
+
+if (btnAddSlushFlavor) {
+  btnAddSlushFlavor.addEventListener("click", async () => {
+    const name = slushFlavorName.value.trim();
+    if (!name) return;
+    
+    slushFlavorStatus.textContent = "جاري الإضافة...";
+    const newFlavors = [...currentSlushFlavors, { name }];
+    const ok = await saveSlushFlavors(newFlavors);
+    if (ok) {
+      slushFlavorName.value = "";
+      slushFlavorStatus.textContent = "تم ✅";
+      loadSlushFlavorsAdmin();
+    } else {
+      slushFlavorStatus.textContent = "فشل الإضافة ❌";
+    }
+    setTimeout(() => slushFlavorStatus.textContent = "", 2000);
+  });
+}
+
+window.deleteSlushFlavor = async (id) => {
+  if (!confirm("هل تريد حذف النكهة؟")) return;
+  const res = await api(`/api/admin/slush-flavors/${id}`, { method: "DELETE" });
+  if (res.ok) {
+    loadSlushFlavorsAdmin();
+  }
+};
+
 if (btnCafeToggle && menuAdminList) {
   loadCafeState();
   loadMenuAdmin();
   loadCategories();
   loadFlavorsAdmin();
+  loadSlushFlavorsAdmin();
 }
 
 // ===== Real-time Updates (Socket.io) =====
@@ -1000,3 +1066,136 @@ moSubmitBtn?.addEventListener("click", async () => {
     moSubmitBtn.textContent = "إتمام وحفظ الطلب ✅";
   }
 });
+
+// ===== Translation / i18n =====
+const btnLangAdmin = document.getElementById("btnLangAdmin");
+let adminLang = localStorage.getItem("adminLang") || "ar";
+
+const adminT = {
+  ar: {
+    dashboard: "لوحة الإدارة",
+    dashSub: "إدارة الطلبات + تعديل المنيو",
+    ordersTab: "استلام الطلبات",
+    menuTab: "تعديل المنيو",
+    accTab: "المحاسبة 📊",
+    testSound: "تجربة الجرس 🔊",
+    orderSite: "موقع الطلب",
+    refresh: "تحديث",
+    searchFilter: "بحث (رقم الطلب، الهاتف، الاسم)...",
+    allOrders: "جميع الطلبات",
+    newOrders: "الجديدة",
+    prepOrders: "قيد التحضير",
+    readyOrders: "جاهزة",
+    doneOrders: "مكتملة",
+    noOrders: "لا توجد طلبات حالياً.",
+    manualOrder: "إضافة طلب يدوياً 📝",
+    menuTitle: "إدارة المنيو",
+    btnAddItem: "إضافة",
+    iceFlavors: "🍦 نكهات الأيسكريم لليوم:",
+    slushFlavorsTitle: "🥤 نكهات السلاش:",
+    addFlavor: "إضافة نكهة +",
+    saveFlavors: "حفظ النكهات",
+    flavor1: "النكهة 1",
+    flavor2: "النكهة 2",
+    mName: "اسم المنتج",
+    mPrice: "السعر",
+    mImgHint: "📷 اضغط لرفع صورة"
+  },
+  en: {
+    dashboard: "Dashboard",
+    dashSub: "Manage Orders + Menu",
+    ordersTab: "Orders",
+    menuTab: "Edit Menu",
+    accTab: "Accounting 📊",
+    testSound: "Test Sound 🔊",
+    orderSite: "Ordering Site",
+    refresh: "Refresh",
+    searchFilter: "Search (Order ID, Phone, Name)...",
+    allOrders: "All Orders",
+    newOrders: "New",
+    prepOrders: "Preparing",
+    readyOrders: "Ready",
+    doneOrders: "Done",
+    noOrders: "No orders currently.",
+    manualOrder: "Add Manual Order 📝",
+    menuTitle: "Menu Management",
+    btnAddItem: "Add",
+    iceFlavors: "🍦 Ice Cream Flavors today:",
+    slushFlavorsTitle: "🥤 Slush Flavors:",
+    addFlavor: "Add Flavor +",
+    saveFlavors: "Save Flavors",
+    flavor1: "Flavor 1",
+    flavor2: "Flavor 2",
+    mName: "Product Name",
+    mPrice: "Price",
+    mImgHint: "📷 Click to upload image"
+  }
+};
+
+function applyAdminLang() {
+  const isAr = adminLang === 'ar';
+  document.documentElement.lang = adminLang;
+  document.documentElement.dir = isAr ? 'rtl' : 'ltr';
+  if (btnLangAdmin) btnLangAdmin.textContent = isAr ? 'EN' : 'ع';
+
+  const t = (k) => adminT[adminLang][k] || adminT.ar[k];
+
+  const setTxt = (sel, k) => {
+    const el = document.querySelector(sel);
+    if (el) el.textContent = t(k);
+  };
+  const setPlh = (sel, k) => {
+    const el = document.querySelector(sel);
+    if (el) el.placeholder = t(k);
+  };
+
+  setTxt(".brandName", "dashboard");
+  setTxt(".brandSub", "dashSub");
+  setTxt("[data-target='tab-orders']", "ordersTab");
+  setTxt("[data-target='tab-menu']", "menuTab");
+  setTxt("[data-target='tab-accounting']", "accTab");
+  setTxt("#btnTestSound", "testSound");
+  setTxt("a[href='/']", "orderSite");
+  setTxt("#btnRefresh", "refresh");
+  setPlh("#search", "searchFilter");
+
+  const statusOpts = document.querySelectorAll("#statusFilter option");
+  if (statusOpts.length >= 5) {
+    statusOpts[0].textContent = t("allOrders");
+    statusOpts[1].textContent = t("newOrders");
+    statusOpts[2].textContent = t("prepOrders");
+    statusOpts[3].textContent = t("readyOrders");
+    statusOpts[4].textContent = t("doneOrders");
+  }
+
+  setTxt("#btnOpenManualOrder", "manualOrder");
+  setTxt("#tab-menu h2", "menuTitle");
+  setTxt("#btnAddItem", "btnAddItem");
+  
+  const iceTitle = document.querySelector("#tab-menu span[style*='color:var(--teal)']");
+  if (iceTitle) iceTitle.textContent = t("iceFlavors");
+  
+  const slushTitle = document.querySelector("#tab-menu div[style*='color:#64b5f6']");
+  if (slushTitle) slushTitle.textContent = t("slushFlavorsTitle");
+
+  setTxt("#btnAddSlushFlavor", "addFlavor");
+  setTxt("#btnSaveFlavors", "saveFlavors");
+
+  setPlh("#flavor1", "flavor1");
+  setPlh("#flavor2", "flavor2");
+  setPlh("#mName", "mName");
+  setPlh("#mPrice", "mPrice");
+
+  const imgBtn = document.querySelector(".btn[title='رفع صورة']");
+  if (imgBtn) imgBtn.textContent = t("mImgHint");
+}
+
+if (btnLangAdmin) {
+  btnLangAdmin.addEventListener("click", () => {
+    adminLang = adminLang === 'ar' ? 'en' : 'ar';
+    localStorage.setItem("adminLang", adminLang);
+    applyAdminLang();
+  });
+}
+
+applyAdminLang();

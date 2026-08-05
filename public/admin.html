@@ -27,6 +27,7 @@
     </div>
 
     <div class="actions">
+      <button id="btnLangAdmin" class="btn btnGhost" style="min-width:44px; font-weight:900;">EN</button>
       <div class="tabs" style="display:flex; gap:5px; background:rgba(255,255,255,0.05); padding:4px; border-radius:12px;">
         <div class="tab active" data-target="tab-orders">استلام الطلبات</div>
         <div class="tab" data-target="tab-menu">تعديل المنيو</div>
@@ -78,8 +79,18 @@
         <h2 style="margin:0 0 10px;">إدارة المنيو</h2>
 
         <div style="display:grid; grid-template-columns: repeat(6, minmax(0,1fr)); gap:10px;">
-          <input id="mCat" class="input" placeholder="التصنيف" list="catList">
-          <datalist id="catList"></datalist>
+          <select id="mCat" class="input" style="min-width:120px;">
+            <option value="" disabled selected>التصنيف...</option>
+            <option value="الكيك">الكيك</option>
+            <option value="سينامون">سينامون</option>
+            <option value="كرواسون">كرواسون</option>
+            <option value="المفن">المفن</option>
+            <option value="المشروبات الحارة">المشروبات الحارة</option>
+            <option value="القهوة الحارة">القهوة الحارة</option>
+            <option value="المشروبات الباردة">المشروبات الباردة</option>
+            <option value="القهوة الباردة">القهوة الباردة</option>
+            <option value="اخرى">اخرى</option>
+          </select>
           <input id="mName" class="input" placeholder="اسم المنتج">
           <input id="mPrice" class="input" placeholder="السعر" inputmode="decimal">
           <div style="display:flex; gap:4px; align-items:center; background:rgba(255,255,255,0.05); border-radius:12px; padding:2px;">
@@ -98,6 +109,17 @@
           <input id="flavor2" class="input" style="width:180px;" placeholder="النكهة 2">
           <button id="btnSaveFlavors" class="btn" style="background:var(--teal); color:white;">حفظ النكهات</button>
           <span id="flavorStatus" style="font-size:0.8rem; color:var(--teal)"></span>
+        </div>
+
+        <!-- نكهات السلاش -->
+        <div style="margin-top:15px; padding:15px; background:rgba(30,100,220,0.07); border:1px dashed rgba(30,136,229,0.3); border-radius:12px;">
+          <div style="font-weight:bold; color:#64b5f6; margin-bottom:12px;">🥤 نكهات السلاش:</div>
+          <div id="slushFlavorsAdmin" style="display:flex; flex-wrap:wrap; gap:10px; margin-bottom:12px;"></div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+            <input id="slushFlavorName" class="input" style="width:140px;" placeholder="اسم النكهة">
+            <button id="btnAddSlushFlavor" class="btn btnPrimary">إضافة نكهة +</button>
+            <span id="slushFlavorStatus" style="font-size:0.8rem; color:#64b5f6;"></span>
+          </div>
         </div>
 
         <div id="menuAdminList" style="margin-top:12px;"></div>
